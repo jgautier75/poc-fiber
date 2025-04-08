@@ -1,0 +1,6 @@
+app:
+  tenant: 1  
+  pgAdminUrl: postgres://fiber_user:fiber_user@localhost:5432/poc-fiber?sslmode=disable
+  pgPoolMin: 5
+  pgPoolMax: 5
+  logFile: "poc-fiber.log"

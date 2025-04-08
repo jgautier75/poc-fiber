@@ -1,0 +1,15 @@
+version: "3.1"
+services:
+  fiber-storage:
+    image: postgres:17.4
+    volumes:
+      - "pg_data:/var/lib/postgresql/data/pgdata"
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: posgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - 5432:5432
+volumes:
+  pg_data:
+    driver: local
