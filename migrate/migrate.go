@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func PerformMigration(log *zap.Logger, pgAdminUrl string) {
+func PerformMigration(log zap.Logger, pgAdminUrl string) {
 	db, err := sql.Open("postgres", pgAdminUrl)
 	if err != nil {
 		panic(fmt.Errorf("error initializing database [%w]", err))
@@ -27,7 +27,7 @@ func PerformMigration(log *zap.Logger, pgAdminUrl string) {
 	}
 	log.Info("Performing postgreSQL migration")
 	errMig := m.Up()
-	if errMig != nil {
+	if errMig != nil && errMig.Error() != "no change" {
 		panic(errMig)
 	}
 

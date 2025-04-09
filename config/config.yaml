@@ -1,6 +1,21 @@
 app:
-  tenant: 1  
-  pgAdminUrl: postgres://fiber_user:fiber_user@localhost:5432/poc-fiber?sslmode=disable
+  name: poc-fiber
+  pgUrl: "postgres://fiber_user:fiber_user@localhost:5432/poc-fiber?sslmode=disable"
   pgPoolMin: 5
   pgPoolMax: 5
   logFile: "poc-fiber.log"
+  server:
+    port: 8101 
+    context: poc-fiber
+    api: api/v1
+sql:
+  tenants:
+    findByCode: "select id,uuid,code,label from tenants where code=$1"
+    findByUuid: "select id,uuid,code,label from tenants where uuid=$1"
+    updateLabelByUuid: "update tenants set label:=$1 where uuid:=$2"
+  organizations:
+    create: "insert into organizations (tenants_id,uuid,code,label,type) values ($1,$2,$3,$4,$5) returning id"
+    updateLabelByUuid: "update organizations set label:=$1 where uuid:=$2"
+    findAllDisplay: "select id,tenants_id,uuid,code,label,type from organizations where tenants_id=$1"
+  sectors:
+    create: "insert into sectors (tenants_id,organizations_id,uuid,code,label,parent_id,has_parent,depth) values ($1,$2,$3,$4,$5,$6,$7,$8) returning id"

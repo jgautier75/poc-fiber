@@ -1,0 +1,1 @@
+insert into tenants (uuid,code,label) values ('da8940d0-6df5-47c3-9059-29a6ce64083c','root_tenant','Root Tenant');

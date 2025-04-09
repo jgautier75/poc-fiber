@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func ConfigureLogger(logCfg string, consoleOutput bool, callerAndStack bool) *zap.Logger {
+func ConfigureLogger(logCfg string, consoleOutput bool, callerAndStack bool) zap.Logger {
 	zapConfig := zap.NewProductionEncoderConfig()
 	zapConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(t.UTC().Format("2006-01-02T15:04:05Z0700"))
@@ -29,8 +29,8 @@ func ConfigureLogger(logCfg string, consoleOutput bool, callerAndStack bool) *za
 		)
 	}
 	if callerAndStack {
-		return zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+		return *zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
 	} else {
-		return zap.New(core)
+		return *zap.New(core)
 	}
 }
