@@ -5,9 +5,17 @@ app:
   pgPoolMax: 5
   logFile: "poc-fiber.log"
   server:
+    base: https://localhost
     port: 8101 
     context: poc-fiber
     api: api/v1
+redis:
+  host: localhost
+  port: 6379    
+oauth2:
+  clientId: "bdGSbNnajHzFcdicCSD51yi2F42KGQbTDm2WiVZB"
+  clientSecret: "yCOmR4cO4AgAq6J2PhuxVLyqLDfEmzmjZ7i22gHDbgbAViRCfkxkYk3e322N9yFj2QRXkyQd0HRBx89g9q9BOvZ0pcU0f1ZkrQE1k2xI7hGJFdMgdc4Q98CmEvQL7pQA"
+  issuer: "http://localhost:9000/application/o/poc-fiber/"
 sql:
   tenants:
     findByCode: "select id,uuid,code,label from tenants where code=$1"

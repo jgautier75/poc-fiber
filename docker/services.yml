@@ -1,5 +1,12 @@
 version: "3.1"
 services:
+  mailpit:
+    image: axllent/mailpit:v1.23
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    volumes:
+      - ./mailpit:/data
   fiber-storage:
     image: postgres:17.4
     volumes:
@@ -10,6 +17,103 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - 5432:5432
+  authentik-storage:
+    image: postgres:17.4
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
+    ports:
+      - "5433:5432"
+    volumes:
+      - authentik-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${PG_PASS:?database password required}
+      POSTGRES_USER: ${PG_USER:-authentik}
+      POSTGRES_DB: ${PG_DB:-authentik}
+    env_file:
+      - .env
+  redis:
+    image: docker.io/library/redis:alpine
+    command: --save 60 1 --loglevel warning
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 3s
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis:/data
+  server:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2025.2.3}
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-storage
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+    volumes:
+      - ./media:/media
+      - ./custom-templates:/templates
+    env_file:
+      - .env
+    ports:
+      - "${COMPOSE_PORT_HTTP:-9000}:9000"
+      - "${COMPOSE_PORT_HTTPS:-9443}:9443"
+    depends_on:
+      authentik-storage:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  worker:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2025.2.2}
+    restart: unless-stopped
+    command: worker
+    environment:
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-storage
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+    # `user: root` and the docker socket volume are optional.
+    # See more for the docker socket integration here:
+    # https://goauthentik.io/docs/outposts/integrations/docker
+    # Removing `user: root` also prevents the worker from fixing the permissions
+    # on the mounted folders, so when removing this make sure the folders have the correct UID/GID
+    # (1000:1000 by default)
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./media:/media
+      - ./certs:/certs
+      - ./custom-templates:/templates
+    env_file:
+      - .env
+    depends_on:
+      authentik-storage:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 volumes:
+  authentik-data:
+    driver: local
+  redis:
+    driver: local
+  mailpit:
+    driver: local
+  media:
+    driver: local
+  custom-templates:
+    driver: local
+  certs:
+    driver: local      
   pg_data:
     driver: local
