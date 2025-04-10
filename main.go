@@ -11,6 +11,7 @@ import (
 	"poc-fiber/endpoints"
 	"poc-fiber/infrastructure"
 	"poc-fiber/logger"
+	"poc-fiber/middleware"
 	"poc-fiber/migrate"
 	"poc-fiber/services"
 	"syscall"
@@ -79,7 +80,7 @@ func main() {
 		// Discovery returns the OAuth2 endpoints.
 		Endpoint: provider.Endpoint(),
 		// "openid" is a required scope for OpenID Connect flows.
-		Scopes: []string{oidc.ScopeOpenID, "profile", "email"},
+		Scopes: []string{oidc.ScopeOpenID, "profile", "email", "offline_access"},
 	}
 	tokenVerifier := provider.Verifier(&oidc.Config{ClientID: viper.GetString("oauth2.clientId")})
 
@@ -102,6 +103,7 @@ func main() {
 	fConfig := endpoints.BuildFiberConfig(viper.GetString("app.name"))
 	logger.Info("Application -> Setup")
 	app := fiber.New(fConfig)
+	app.Use(middleware.NewApiOidcHandler(fullApiUri, tokenVerifier))
 	app.Get(fullApiUri+"/tenants/:tenantUuid/organizations", endpoints.MakeOrgFindAll(orgService))
 	app.Get("/"+appContext+"/home", endpoints.MakeIndex(oauth2Config, store))
 	app.Get(oauthCallBackUri, endpoints.MakeOAuthCallback(oauth2Config, store, tokenVerifier))
