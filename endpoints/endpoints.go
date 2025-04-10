@@ -102,13 +102,15 @@ func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *o
 		httpSession.Set("token_type", token.TokenType)
 		httpSession.Set("token_expiresin", token.ExpiresIn)
 		httpSession.Set("token_expiry", token.Expiry)
+		httpSession.Set("userName", claims.PreferedUserName)
 		errSessionSave := httpSession.Save()
 		if errSessionSave != nil {
 			fmt.Printf("error session save [%s]", errSessionSave.Error())
 			return errSessionSave
 		}
 		return ctx.Render("welcome", fiber.Map{
-			"UserName": claims.PreferedUserName,
+			"UserName":    claims.PreferedUserName,
+			"AccessToken": token.AccessToken,
 		})
 
 	}
