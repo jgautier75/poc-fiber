@@ -2,27 +2,26 @@ package endpoints
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/json"
+
 	"errors"
 	"fmt"
-	"io"
+
 	"net/url"
 	"poc-fiber/exceptions"
 	"poc-fiber/model"
+	"poc-fiber/security"
 	"poc-fiber/services"
 	"runtime"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/go-resty/resty/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/storage/redis"
 	"github.com/gofiber/template/html/v2"
-	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 )
+
+const HEADER_STATE = "state"
 
 func MakeOrgFindAll(orgSvc services.OrganizationService) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
@@ -40,7 +39,7 @@ func MakeOrgFindAll(orgSvc services.OrganizationService) func(ctx *fiber.Ctx) er
 }
 
 func MakeIndex(oauthCfg oauth2.Config, store *session.Store) func(ctx *fiber.Ctx) error {
-	state, errState := generateState(28)
+	state, errState := security.GenerateState(28)
 	if errState != nil {
 		panic(fmt.Errorf("error reading config : [%w]", errState))
 	}
@@ -51,7 +50,7 @@ func MakeIndex(oauthCfg oauth2.Config, store *session.Store) func(ctx *fiber.Ctx
 		if errSession != nil {
 			panic(fmt.Errorf("error instantiating session : [%w]", errState))
 		}
-		httpSession.Set("state", state)
+		httpSession.Set(HEADER_STATE, state)
 		errSessionSave := httpSession.Save()
 		if errSessionSave != nil {
 			panic(fmt.Errorf("error session save [%s]", errSessionSave))
@@ -74,7 +73,7 @@ func MakeVersions(appVersion string) func(ctx *fiber.Ctx) error {
 func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *oidc.IDTokenVerifier) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		code := ctx.Query("code")
-		reqState := ctx.Query("state")
+		reqState := ctx.Query(HEADER_STATE)
 		decState, errDecode := url.QueryUnescape(reqState)
 		if errDecode != nil {
 			panic(fmt.Errorf("error decoding state: [%w]", errDecode))
@@ -92,21 +91,13 @@ func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *o
 				"ErrorMsg": fmt.Errorf("failed to exchange token : [%w]", err),
 			})
 		}
-
-		idToken, errVerify := verifier.Verify(context.Background(), token.AccessToken)
-		if errVerify != nil {
-			return ctx.Render("error", fiber.Map{
-				"ErrorMsg": fmt.Errorf("token verification failed : [%w]", errVerify),
-			})
+		claims, errorVerify := security.VerifyAndStoreToken(ctx, *token, store, verifier)
+		if errorVerify != nil {
+			panic(fmt.Errorf("token verification error : [%w]", errorVerify))
 		}
 
-		var claims model.Claims
-		idToken.Claims(&claims)
-
 		sid := httpSession.ID()
-		httpSession.Delete("state")
-		httpSession.Set("token", token)
-		httpSession.Set("userName", claims.PreferedUserName)
+		httpSession.Delete(HEADER_STATE)
 		errSessionSave := httpSession.Save()
 		if errSessionSave != nil {
 			fmt.Printf("error session save [%s]", errSessionSave.Error())
@@ -119,15 +110,6 @@ func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *o
 			"SessionId":    sid,
 		})
 	}
-}
-
-func generateState(n int) (string, error) {
-	data := make([]byte, n)
-	if _, err := io.ReadFull(rand.Reader, data); err != nil {
-		return "", err
-	}
-	state := base64.StdEncoding.EncodeToString(data)
-	return state, nil
 }
 
 func BuildFiberConfig(appName string) fiber.Config {
@@ -176,63 +158,4 @@ func ConfigureRedisStorage(redisHost string, redisPort int) *redis.Storage {
 		PoolSize:  10 * runtime.GOMAXPROCS(0),
 	},
 	)
-}
-
-func RenewToken(oauthCfg oauth2.Config, store *session.Store, verifier *oidc.IDTokenVerifier,
-	provider *oidc.Provider, logger zap.Logger, clientId string, clientSecret string) func(ctx *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
-		httpSession, errSession := store.Get(ctx)
-		if errSession != nil {
-			panic(errors.New("session not found"))
-		}
-		tkn := httpSession.Get("token").(oauth2.Token)
-		var nilToken oauth2.Token
-		if tkn == nilToken {
-			panic(errors.New("token not found in session"))
-		}
-
-		client := resty.New()
-		client.SetDebug(true)
-		client.SetCloseConnection(true)
-		res, errPost := client.R().
-			SetFormData(map[string]string{
-				"grant_type":    "refresh_token",
-				"refresh_token": tkn.RefreshToken,
-				"client_id":     clientId,
-				"client_secret": clientSecret,
-			}).
-			SetHeader("Cache-Control", "no-cache").
-			Post(provider.Endpoint().TokenURL)
-		if errPost != nil {
-			logger.Error("error refresh token", zap.Error(errPost))
-		}
-		bodyString := string(res.Body())
-		logger.Info(bodyString)
-
-		var newToken oauth2.Token
-		json.Unmarshal(ctx.Body(), &newToken)
-
-		idToken, errVerify := verifier.Verify(context.Background(), newToken.AccessToken)
-		if errVerify != nil {
-			logger.Error("token verification failed", zap.Error(errVerify))
-		}
-		var claims model.Claims
-		idToken.Claims(&claims)
-
-		sid := httpSession.ID()
-		httpSession.Delete("state")
-		httpSession.Set("token", newToken)
-		httpSession.Set("userName", claims.PreferedUserName)
-		errSessionSave := httpSession.Save()
-		if errSessionSave != nil {
-			fmt.Printf("error session save [%s]", errSessionSave.Error())
-			return errSessionSave
-		}
-		return ctx.Render("welcome", fiber.Map{
-			"UserName":     claims.PreferedUserName,
-			"AccessToken":  newToken.AccessToken,
-			"RefreshToken": newToken.RefreshToken,
-			"SessionId":    sid,
-		})
-	}
 }

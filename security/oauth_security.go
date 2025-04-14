@@ -2,7 +2,9 @@ package security
 
 import (
 	"context"
-	"encoding/json"
+	"crypto/rand"
+	"encoding/base64"
+	"io"
 	"poc-fiber/model"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -11,17 +13,16 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func UnmarshalAndSaveToken(ctx *fiber.Ctx, tokenData []byte, store *session.Store, verifier *oidc.IDTokenVerifier) error {
-	var newToken oauth2.Token
-	json.Unmarshal(tokenData, &newToken)
-	idToken, errVerify := verifier.Verify(context.Background(), newToken.AccessToken)
-	if errVerify != nil {
-		return errVerify
-	}
+func VerifyAndStoreToken(ctx *fiber.Ctx, token oauth2.Token, store *session.Store, verifier *oidc.IDTokenVerifier) (model.Claims, error) {
 	var claims model.Claims
+	idToken, errVerify := verifier.Verify(context.Background(), token.AccessToken)
+	if errVerify != nil {
+		return claims, errVerify
+	}
+
 	idToken.Claims(&claims)
-	errorStorage := StoreToken(store, ctx, newToken, claims)
-	return errorStorage
+	errorStorage := StoreToken(store, ctx, token, claims)
+	return claims, errorStorage
 }
 
 func StoreToken(store *session.Store, ctx *fiber.Ctx, token oauth2.Token, claims model.Claims) error {
@@ -31,5 +32,15 @@ func StoreToken(store *session.Store, ctx *fiber.Ctx, token oauth2.Token, claims
 	}
 	httpSession.Set("token", token)
 	httpSession.Set("userName", claims.PreferedUserName)
+	httpSession.Save()
 	return nil
+}
+
+func GenerateState(n int) (string, error) {
+	data := make([]byte, n)
+	if _, err := io.ReadFull(rand.Reader, data); err != nil {
+		return "", err
+	}
+	state := base64.StdEncoding.EncodeToString(data)
+	return state, nil
 }

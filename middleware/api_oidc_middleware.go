@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"poc-fiber/exceptions"
 	"poc-fiber/security"
@@ -14,13 +15,20 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const (
+	HEADER_SESSION_ID    = "session_id"
+	HEADER_AUTHORIZATION = "Authorization"
+	HEADER_BEARER        = "Bearer"
+	SESSION_ATTR_TOKEN   = "token"
+)
+
 func NewApiOidcHandler(apiBaseUri string, renewRedirectUri string, provider *oidc.Provider,
 	verifier *oidc.IDTokenVerifier, store *session.Store, clientId string, clientSecret string) fiber.Handler {
 	return func(c *fiber.Ctx) (err error) {
 		p := c.Path()
 		if strings.HasPrefix(p, apiBaseUri) {
-			auth := c.GetReqHeaders()["Authorization"]
-			sid := c.Cookies("session_id")
+			auth := c.GetReqHeaders()[HEADER_AUTHORIZATION]
+			sid := c.Cookies(HEADER_SESSION_ID)
 			if auth != nil {
 				errAuth := checkAuthorization(c, verifier)
 				if errAuth != nil {
@@ -35,7 +43,7 @@ func NewApiOidcHandler(apiBaseUri string, renewRedirectUri string, provider *oid
 				if errFetch != nil {
 					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errFetch, fiber.StatusUnauthorized))
 				}
-				errStore := security.UnmarshalAndSaveToken(c, tokenData, store, verifier)
+				_, errStore := security.VerifyAndStoreToken(c, tokenData, store, verifier)
 				if errStore != nil {
 					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errStore, fiber.StatusUnauthorized))
 				}
@@ -48,14 +56,14 @@ func NewApiOidcHandler(apiBaseUri string, renewRedirectUri string, provider *oid
 }
 
 func checkSession(c *fiber.Ctx, store *session.Store) (string, error) {
-	sid := c.Cookies("session_id")
+	sid := c.Cookies(HEADER_SESSION_ID)
 	var nilString string
 	if sid != "" {
 		httpSession, errSession := store.Get(c)
 		if errSession != nil {
 			return nilString, errors.New("invalid session")
 		}
-		tkn := httpSession.Get("token").(oauth2.Token)
+		tkn := httpSession.Get(SESSION_ATTR_TOKEN).(oauth2.Token)
 		var nilToken oauth2.Token
 		if tkn == nilToken {
 			return nilString, errors.New("no token in session")
@@ -68,9 +76,9 @@ func checkSession(c *fiber.Ctx, store *session.Store) (string, error) {
 }
 
 func checkAuthorization(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) error {
-	auth := c.GetReqHeaders()["Authorization"]
+	auth := c.GetReqHeaders()[HEADER_AUTHORIZATION]
 	if auth != nil {
-		if !strings.HasPrefix(auth[0], "Bearer") {
+		if !strings.HasPrefix(auth[0], HEADER_BEARER) {
 			return errors.New("bearer expected")
 		}
 		reqToken := strings.Split(auth[0], " ")[1]
@@ -86,7 +94,7 @@ func checkAuthorization(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) error {
 	return nil
 }
 
-func fetchNewToken(provider *oidc.Provider, refreshToken string, redirectUri string, clientId string, clientSecret string) ([]byte, error) {
+func fetchNewToken(provider *oidc.Provider, refreshToken string, redirectUri string, clientId string, clientSecret string) (oauth2.Token, error) {
 	client := resty.New()
 	client.SetDebug(true)
 	client.SetCloseConnection(true)
@@ -98,8 +106,10 @@ func fetchNewToken(provider *oidc.Provider, refreshToken string, redirectUri str
 	}).
 		SetHeader("Cache-Control", "no-cache").
 		Post(provider.Endpoint().TokenURL)
+	var newToken oauth2.Token
 	if errPost != nil {
-		return nil, errPost
+		return newToken, errPost
 	}
-	return res.Body(), nil
+	json.Unmarshal(res.Body(), &newToken)
+	return newToken, nil
 }
