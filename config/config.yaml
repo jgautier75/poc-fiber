@@ -4,6 +4,7 @@ app:
   pgPoolMin: 5
   pgPoolMax: 5
   logFile: "poc-fiber.log"
+  version: 1.0.0
   server:
     base: https://localhost
     port: 8101 

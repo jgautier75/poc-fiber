@@ -4,19 +4,23 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"poc-fiber/exceptions"
+	"poc-fiber/model"
 	"poc-fiber/services"
 	"runtime"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/go-resty/resty/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/storage/redis"
 	"github.com/gofiber/template/html/v2"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 )
 
@@ -58,6 +62,15 @@ func MakeIndex(oauthCfg oauth2.Config, store *session.Store) func(ctx *fiber.Ctx
 	}
 }
 
+func MakeVersions(appVersion string) func(ctx *fiber.Ctx) error {
+	return func(ctx *fiber.Ctx) error {
+		v := model.VersionResponse{
+			Version: appVersion,
+		}
+		return ctx.Status(fiber.StatusOK).JSON(v)
+	}
+}
+
 func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *oidc.IDTokenVerifier) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		code := ctx.Query("code")
@@ -87,21 +100,12 @@ func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *o
 			})
 		}
 
-		var claims struct {
-			Email            string `json:"email"`
-			Verified         bool   `json:"email_verified"`
-			Name             string `json:"name"`
-			GivenName        string `json:"given_name"`
-			PreferedUserName string `json:"preferred_username"`
-		}
+		var claims model.Claims
 		idToken.Claims(&claims)
 
+		sid := httpSession.ID()
 		httpSession.Delete("state")
-		httpSession.Set("access_token", token.AccessToken)
-		httpSession.Set("refresh_token", token.RefreshToken)
-		httpSession.Set("token_type", token.TokenType)
-		httpSession.Set("token_expiresin", token.ExpiresIn)
-		httpSession.Set("token_expiry", token.Expiry)
+		httpSession.Set("token", token)
 		httpSession.Set("userName", claims.PreferedUserName)
 		errSessionSave := httpSession.Save()
 		if errSessionSave != nil {
@@ -109,10 +113,11 @@ func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *o
 			return errSessionSave
 		}
 		return ctx.Render("welcome", fiber.Map{
-			"UserName":    claims.PreferedUserName,
-			"AccessToken": token.AccessToken,
+			"UserName":     claims.PreferedUserName,
+			"AccessToken":  token.AccessToken,
+			"RefreshToken": token.RefreshToken,
+			"SessionId":    sid,
 		})
-
 	}
 }
 
@@ -171,4 +176,63 @@ func ConfigureRedisStorage(redisHost string, redisPort int) *redis.Storage {
 		PoolSize:  10 * runtime.GOMAXPROCS(0),
 	},
 	)
+}
+
+func RenewToken(oauthCfg oauth2.Config, store *session.Store, verifier *oidc.IDTokenVerifier,
+	provider *oidc.Provider, logger zap.Logger, clientId string, clientSecret string) func(ctx *fiber.Ctx) error {
+	return func(ctx *fiber.Ctx) error {
+		httpSession, errSession := store.Get(ctx)
+		if errSession != nil {
+			panic(errors.New("session not found"))
+		}
+		tkn := httpSession.Get("token").(oauth2.Token)
+		var nilToken oauth2.Token
+		if tkn == nilToken {
+			panic(errors.New("token not found in session"))
+		}
+
+		client := resty.New()
+		client.SetDebug(true)
+		client.SetCloseConnection(true)
+		res, errPost := client.R().
+			SetFormData(map[string]string{
+				"grant_type":    "refresh_token",
+				"refresh_token": tkn.RefreshToken,
+				"client_id":     clientId,
+				"client_secret": clientSecret,
+			}).
+			SetHeader("Cache-Control", "no-cache").
+			Post(provider.Endpoint().TokenURL)
+		if errPost != nil {
+			logger.Error("error refresh token", zap.Error(errPost))
+		}
+		bodyString := string(res.Body())
+		logger.Info(bodyString)
+
+		var newToken oauth2.Token
+		json.Unmarshal(ctx.Body(), &newToken)
+
+		idToken, errVerify := verifier.Verify(context.Background(), newToken.AccessToken)
+		if errVerify != nil {
+			logger.Error("token verification failed", zap.Error(errVerify))
+		}
+		var claims model.Claims
+		idToken.Claims(&claims)
+
+		sid := httpSession.ID()
+		httpSession.Delete("state")
+		httpSession.Set("token", newToken)
+		httpSession.Set("userName", claims.PreferedUserName)
+		errSessionSave := httpSession.Save()
+		if errSessionSave != nil {
+			fmt.Printf("error session save [%s]", errSessionSave.Error())
+			return errSessionSave
+		}
+		return ctx.Render("welcome", fiber.Map{
+			"UserName":     claims.PreferedUserName,
+			"AccessToken":  newToken.AccessToken,
+			"RefreshToken": newToken.RefreshToken,
+			"SessionId":    sid,
+		})
+	}
 }

@@ -27,6 +27,7 @@ import (
 func main() {
 
 	gob.Register(time.Time{})
+	gob.Register(oauth2.Token{})
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
@@ -54,6 +55,8 @@ func main() {
 	}
 	defer dbPool.Close()
 
+	clientId := viper.GetString("oauth2.clientId")
+	clientSecret := viper.GetString("oauth2.clientSecret")
 	appBase := viper.GetString("app.server.base")
 	appContext := viper.GetString("app.server.context")
 	appPort := viper.GetString("app.server.port")
@@ -74,15 +77,15 @@ func main() {
 	provider = <-asyncOidcIssuer
 
 	oauth2Config := oauth2.Config{
-		ClientID:     viper.GetString("oauth2.clientId"),
-		ClientSecret: viper.GetString("oauth2.clientSecret"),
+		ClientID:     clientId,
+		ClientSecret: clientSecret,
 		RedirectURL:  oauthCallBackFull,
 		// Discovery returns the OAuth2 endpoints.
 		Endpoint: provider.Endpoint(),
 		// "openid" is a required scope for OpenID Connect flows.
 		Scopes: []string{oidc.ScopeOpenID, "profile", "email", "offline_access"},
 	}
-	tokenVerifier := provider.Verifier(&oidc.Config{ClientID: viper.GetString("oauth2.clientId")})
+	tokenVerifier := provider.Verifier(&oidc.Config{ClientID: clientId})
 
 	//Setup Dao & Services
 	var tenantDao = dao.NewTenantDao(dbPool)
@@ -92,6 +95,7 @@ func main() {
 
 	apiBaseUri := viper.GetString("app.server.api")
 	var fullApiUri = "/" + appContext + "/" + apiBaseUri
+	var versionsApi = fullApiUri + "/versions"
 
 	// Redis setup (session storage)
 	defCfg := session.ConfigDefault
@@ -103,10 +107,13 @@ func main() {
 	fConfig := endpoints.BuildFiberConfig(viper.GetString("app.name"))
 	logger.Info("Application -> Setup")
 	app := fiber.New(fConfig)
-	app.Use(middleware.NewApiOidcHandler(fullApiUri, tokenVerifier))
+
+	app.Use(middleware.NewApiOidcHandler(fullApiUri, versionsApi, provider, tokenVerifier, store, clientId, clientSecret))
+
 	app.Get(fullApiUri+"/tenants/:tenantUuid/organizations", endpoints.MakeOrgFindAll(orgService))
 	app.Get("/"+appContext+"/home", endpoints.MakeIndex(oauth2Config, store))
 	app.Get(oauthCallBackUri, endpoints.MakeOAuthCallback(oauth2Config, store, tokenVerifier))
+	app.Get(versionsApi, endpoints.MakeVersions(viper.GetString("app.version")))
 
 	go func() {
 		logger.Info("Application -> Listen TLS")

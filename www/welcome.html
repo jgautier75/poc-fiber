@@ -10,6 +10,19 @@
 
 <body>
 	<p><a href="#">Welcome {{.UserName}}</a></p>
-	<p>Access Token: </p><input type="text" name="access_token" value="{{.AccessToken}}"/>
+	<table>
+		<tr>
+			<td>Access Token</td>
+			<td><input type="text" name="access_token" value="{{.AccessToken}}" size="150"/></td>
+		</tr>
+		<tr>
+			<td>Refresh token</td>
+			<td><input type="text" name="refresh_token" value="{{.RefreshToken}}" size="150"></td>
+		</tr>
+		<tr>
+			<td>Session id</td>
+			<td><input type="text" name="session_id" value="{{.SessionId}}" size="150"></td>
+		</tr>
+	</table>	
 </body>
 </html>

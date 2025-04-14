@@ -38,6 +38,7 @@ require (
 	github.com/valyala/fasthttp v1.60.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/sync v0.13.0 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 )
@@ -45,6 +46,7 @@ require (
 require (
 	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/go-resty/resty/v2 v2.16.5
 	github.com/gofiber/storage/redis v1.3.4
 	github.com/gofiber/template/html/v2 v2.1.3
 	github.com/golang-migrate/migrate/v4 v4.18.2
