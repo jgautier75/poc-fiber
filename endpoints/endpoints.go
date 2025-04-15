@@ -18,6 +18,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/storage/redis"
 	"github.com/gofiber/template/html/v2"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 )
 
@@ -109,6 +110,22 @@ func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *o
 			"RefreshToken": token.RefreshToken,
 			"SessionId":    sid,
 		})
+	}
+}
+
+func MakeSectorsFindAll(sectorsSvc services.SectorService, logger zap.Logger) func(ctx *fiber.Ctx) error {
+	return func(ctx *fiber.Ctx) error {
+		tenantUuid := ctx.Params("tenantUuid")
+		orgUuid := ctx.Params("organizationUuid")
+		sectorsList, errFindAll := sectorsSvc.FindSectorsByTenantAndOrganization(tenantUuid, orgUuid, logger)
+		if errFindAll != nil {
+			_ = ctx.SendStatus(fiber.StatusBadRequest)
+			apiErr := exceptions.ConvertToFunctionalError(errFindAll, fiber.StatusBadRequest)
+			return ctx.JSON(apiErr)
+		} else {
+			_ = ctx.SendStatus(fiber.StatusOK)
+			return ctx.JSON(sectorsList)
+		}
 	}
 }
 

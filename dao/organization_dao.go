@@ -66,3 +66,18 @@ func (orgDao *OrganizationDao) FindAllByTenantId(tenantId int64) ([]model.Organi
 	}
 	return orgs, nil
 }
+
+func (orgDao *OrganizationDao) FindByTenantAndUuid(tenantId int64, orgUuid string) (model.Organization, error) {
+	var nilOrg model.Organization
+	sqlOrgsMaps := viper.GetStringMapString(CONFIG_ORGS)
+	rows, e := orgDao.DbPool.Query(context.Background(), sqlOrgsMaps["findbytenantanduuid"], tenantId, orgUuid)
+	if e != nil {
+		return nilOrg, e
+	}
+	defer rows.Close()
+	org, errCollect := pgx.CollectOneRow(rows, pgx.RowToStructByName[model.Organization])
+	if errCollect != nil {
+		return nilOrg, errCollect
+	}
+	return org, nil
+}

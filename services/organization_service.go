@@ -28,10 +28,6 @@ func NewOrganizationService(tDao dao.TenantDao, oDao dao.OrganizationDao, sDao d
 	return orgService
 }
 
-func (orgService *OrganizationService) Void() {
-
-}
-
 func (orgService *OrganizationService) CreateOrganization(tenantUuid string, code string, label string, otype string) (model.CompositeId, error) {
 
 	// Find tenant

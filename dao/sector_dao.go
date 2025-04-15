@@ -45,3 +45,18 @@ func (s SectorDao) WithTxCreateSector(tx pgx.Tx, sector model.Sector) (model.Com
 	}
 	return compId, errQuery
 }
+
+func (s SectorDao) FindByTenantandOrganization(tenantId int64, organizationId int64) ([]model.Sector, error) {
+	selStmt := viper.GetString("sectors.findbytenantorg")
+	rows, e := s.DbPool.Query(context.Background(), selStmt, tenantId, organizationId)
+	if e != nil {
+		return nil, e
+	}
+	defer rows.Close()
+
+	sectors, errCollect := pgx.CollectRows(rows, pgx.RowToStructByName[model.Sector])
+	if errCollect != nil {
+		return nil, errCollect
+	}
+	return sectors, nil
+}

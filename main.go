@@ -9,6 +9,7 @@ import (
 	"poc-fiber/certificates"
 	"poc-fiber/dao"
 	"poc-fiber/endpoints"
+	"poc-fiber/functions"
 	"poc-fiber/infrastructure"
 	"poc-fiber/logger"
 	"poc-fiber/middleware"
@@ -91,7 +92,11 @@ func main() {
 	var tenantDao = dao.NewTenantDao(dbPool)
 	var orgDao = dao.NewOrganizationDao(dbPool)
 	var sectorDao = dao.NewSectorDao(dbPool)
+	var tenantFunctions = functions.NewTenantFunctions(tenantDao, logger)
+	var orgFunctions = functions.NewOrganizationsFunctions(orgDao, logger)
+
 	var orgService = services.NewOrganizationService(tenantDao, orgDao, sectorDao, logger)
+	var sectorService = services.NewSectorService(tenantFunctions, orgFunctions, sectorDao, logger)
 
 	apiBaseUri := viper.GetString("app.server.api")
 	var fullApiUri = "/" + appContext + "/" + apiBaseUri
@@ -114,6 +119,7 @@ func main() {
 	app.Get("/"+appContext+"/home", endpoints.MakeIndex(oauth2Config, store))
 	app.Get(oauthCallBackUri, endpoints.MakeOAuthCallback(oauth2Config, store, tokenVerifier))
 	app.Get(versionsApi, endpoints.MakeVersions(viper.GetString("app.version")))
+	app.Get(fullApiUri+"/tenants/:tenantUuid/organizations/:organizationUuid/sectors", endpoints.MakeSectorsFindAll(sectorService, logger))
 
 	go func() {
 		logger.Info("Application -> Listen TLS")
