@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"net/url"
+	"poc-fiber/converters"
+	"poc-fiber/dtos"
 	"poc-fiber/exceptions"
 	"poc-fiber/model"
 	"poc-fiber/security"
@@ -86,24 +88,20 @@ func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *o
 		if errSession != nil {
 			panic(fmt.Errorf("error instantiating session : [%w]", errSession))
 		}
+		defer httpSession.Save()
 		token, err := oauthCfg.Exchange(context.Background(), code)
 		if err != nil {
 			return ctx.Render("error", fiber.Map{
 				"ErrorMsg": fmt.Errorf("failed to exchange token : [%w]", err),
 			})
 		}
-		claims, errorVerify := security.VerifyAndStoreToken(ctx, *token, store, verifier)
+		claims, errorVerify := security.VerifyAndStoreToken(ctx, *token, httpSession, verifier)
 		if errorVerify != nil {
 			panic(fmt.Errorf("token verification error : [%w]", errorVerify))
 		}
 
 		sid := httpSession.ID()
 		httpSession.Delete(HEADER_STATE)
-		errSessionSave := httpSession.Save()
-		if errSessionSave != nil {
-			fmt.Printf("error session save [%s]", errSessionSave.Error())
-			return errSessionSave
-		}
 		return ctx.Render("welcome", fiber.Map{
 			"UserName":     claims.PreferedUserName,
 			"AccessToken":  token.AccessToken,
@@ -113,18 +111,49 @@ func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *o
 	}
 }
 
+func MakeSectorCreate(sectorsSvc services.SectorService, logger zap.Logger) func(ctx *fiber.Ctx) error {
+	return func(ctx *fiber.Ctx) error {
+		tenantUuid := ctx.Params("tenantUuid")
+		orgUuid := ctx.Params("organizationUuid")
+
+		// Deserialize request
+		sectorReq := dtos.SectorCreateRequest{}
+		if err := ctx.BodyParser(&sectorReq); err != nil {
+			_ = ctx.SendStatus(fiber.StatusInternalServerError)
+			apiErr := exceptions.ConvertToInternalError(err)
+			return ctx.JSON(apiErr)
+		}
+		cid, errCreate := sectorsSvc.CreateSector(tenantUuid, orgUuid, sectorReq, logger)
+		if errCreate != nil {
+			_ = ctx.SendStatus(fiber.StatusBadRequest)
+			apiErr := exceptions.ConvertToFunctionalError(errCreate, fiber.StatusBadRequest)
+			return ctx.JSON(apiErr)
+		}
+		uuidResponse := dtos.UuidResponse{
+			Uuid: cid.Uuid,
+		}
+		ctx.SendStatus(fiber.StatusOK)
+		return ctx.JSON(uuidResponse)
+	}
+}
+
 func MakeSectorsFindAll(sectorsSvc services.SectorService, logger zap.Logger) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
 		sectorsList, errFindAll := sectorsSvc.FindSectorsByTenantAndOrganization(tenantUuid, orgUuid, logger)
+		sectorLightResponse := converters.BuildSectorsLightHierarchy(sectorsList)
+		var sectorLightResponseList = dtos.SectorLightResponseList{
+			Sectors: sectorLightResponse,
+		}
+
 		if errFindAll != nil {
 			_ = ctx.SendStatus(fiber.StatusBadRequest)
 			apiErr := exceptions.ConvertToFunctionalError(errFindAll, fiber.StatusBadRequest)
 			return ctx.JSON(apiErr)
 		} else {
 			_ = ctx.SendStatus(fiber.StatusOK)
-			return ctx.JSON(sectorsList)
+			return ctx.JSON(sectorLightResponseList)
 		}
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"io"
+	"poc-fiber/commons"
 	"poc-fiber/model"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -13,26 +14,27 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func VerifyAndStoreToken(ctx *fiber.Ctx, token oauth2.Token, store *session.Store, verifier *oidc.IDTokenVerifier) (model.Claims, error) {
+func VerifyAndStoreToken(ctx *fiber.Ctx, token oauth2.Token, httpSession *session.Session, verifier *oidc.IDTokenVerifier) (model.Claims, error) {
 	var claims model.Claims
 	idToken, errVerify := verifier.Verify(context.Background(), token.AccessToken)
 	if errVerify != nil {
 		return claims, errVerify
 	}
 
-	idToken.Claims(&claims)
-	errorStorage := StoreToken(store, ctx, token, claims)
+	errClaims := idToken.Claims(&claims)
+	if errClaims != nil {
+		return claims, errClaims
+	}
+	errorStorage := StoreToken(httpSession, ctx, token, claims)
+	if errorStorage != nil {
+		return claims, errorStorage
+	}
 	return claims, errorStorage
 }
 
-func StoreToken(store *session.Store, ctx *fiber.Ctx, token oauth2.Token, claims model.Claims) error {
-	httpSession, errSession := store.Get(ctx)
-	if errSession != nil {
-		return errSession
-	}
-	httpSession.Set("token", token)
-	httpSession.Set("userName", claims.PreferedUserName)
-	httpSession.Save()
+func StoreToken(httpSession *session.Session, ctx *fiber.Ctx, token oauth2.Token, claims model.Claims) error {
+	httpSession.Set(commons.SESSION_ATTR_TOKEN, token)
+	httpSession.Set(commons.SESSION_ATTR_USERNAME, claims.PreferedUserName)
 	return nil
 }
 

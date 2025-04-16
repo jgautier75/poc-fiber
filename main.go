@@ -120,6 +120,7 @@ func main() {
 	app.Get(oauthCallBackUri, endpoints.MakeOAuthCallback(oauth2Config, store, tokenVerifier))
 	app.Get(versionsApi, endpoints.MakeVersions(viper.GetString("app.version")))
 	app.Get(fullApiUri+"/tenants/:tenantUuid/organizations/:organizationUuid/sectors", endpoints.MakeSectorsFindAll(sectorService, logger))
+	app.Post(fullApiUri+"/tenants/:tenantUuid/organizations/:organizationUuid/sectors", endpoints.MakeSectorCreate(sectorService, logger))
 
 	go func() {
 		logger.Info("Application -> Listen TLS")
@@ -131,7 +132,7 @@ func main() {
 	c := make(chan os.Signal, 1)                    // Create channel to signify a signal being sent
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM) // When an interrupt or termination signal is sent, notify the channel
 
-	_ = <-c // This blocks the main thread until an interrupt is received
+	<-c // This blocks the main thread until an interrupt is received
 	fmt.Println("Gracefully shutting down...")
 	_ = app.Shutdown()
 }

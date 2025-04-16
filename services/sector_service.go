@@ -1,11 +1,16 @@
 package services
 
 import (
+	"database/sql"
 	"errors"
-	"poc-fiber/commons"
+	"poc-fiber/converters"
 	"poc-fiber/dao"
 	"poc-fiber/dtos"
+	"poc-fiber/exceptions"
 	"poc-fiber/functions"
+	"poc-fiber/model"
+
+	"github.com/google/uuid"
 
 	"go.uber.org/zap"
 )
@@ -40,7 +45,7 @@ func (sectorService *SectorService) FindSectorsByTenantAndOrganization(tenantUui
 		return sectorsList, errFindOrg
 	}
 
-	sectors, errSectors := sectorService.sectorDao.FindByTenantandOrganization(tenant.Id, org.Id)
+	sectors, errSectors := sectorService.sectorDao.FindAllByTenantAndOrganization(tenant.Id, org.Id)
 	if errSectors != nil {
 		return sectorsList, errSectors
 	}
@@ -49,17 +54,17 @@ func (sectorService *SectorService) FindSectorsByTenantAndOrganization(tenantUui
 	sectorsResponseArray := make([]dtos.SectorResponse, len(sectors))
 	for inc, s := range sectors {
 		sgResponse := dtos.SectorResponse{
-			Id:       &s.Id,
+			Id:       sql.NullInt64{Int64: s.Id},
 			Uuid:     &s.Uuid,
 			Code:     &s.Code,
 			Label:    &s.Label,
 			Depth:    s.Depth,
-			ParentId: &s.ParentId.Int64,
+			ParentId: s.ParentId,
 		}
 		sectorsResponseArray[inc] = sgResponse
 	}
 
-	s, errHierarchy := buildSectorsHierarchy(sectorsResponseArray)
+	s, errHierarchy := converters.BuildSectorsHierarchy(sectorsResponseArray)
 	if errHierarchy != nil {
 		return sectorsList, errHierarchy
 	}
@@ -67,33 +72,51 @@ func (sectorService *SectorService) FindSectorsByTenantAndOrganization(tenantUui
 	return sectorsList, nil
 }
 
-func buildSectorsHierarchy(sectors []dtos.SectorResponse) (dtos.SectorResponse, error) {
-	var rootSector dtos.SectorResponse
-	for _, sector := range sectors {
-		if sector.Depth == 0 {
-			rootSector = sector
-			break
-		}
-	}
-	if &rootSector == nil {
-		return rootSector, errors.New(commons.SectorRootNotFound)
-	}
-	return fetchRecursively(&rootSector, sectors), nil
-}
+func (sectorService *SectorService) CreateSector(tenantUuid string, orgUuid string, sectorReq dtos.SectorCreateRequest, logger zap.Logger) (model.CompositeId, error) {
+	var nilComposite model.CompositeId
+	var nilSector model.Sector
 
-func fetchRecursively(parentSector *dtos.SectorResponse, sectors []dtos.SectorResponse) dtos.SectorResponse {
-	var c = make([]dtos.SectorResponse, 0)
-	for _, sector := range sectors {
-		if sector.ParentId == parentSector.Id {
-			c = append(c, fetchRecursively(&sector, sectors))
-		}
+	// Ensure tenant exists
+	tenant, errFindTenant := sectorService.tenantFunctions.FindTenant(tenantUuid, logger)
+	if errFindTenant != nil {
+		return nilComposite, errFindTenant
 	}
-	return dtos.SectorResponse{
-		Id:       parentSector.Id,
-		Code:     parentSector.Code,
-		Label:    parentSector.Label,
-		ParentId: parentSector.ParentId,
-		Depth:    parentSector.Depth,
-		Children: c,
+
+	// Ensure organization exists
+	org, errFindOrg := sectorService.orgsFunctions.FindOrganization(tenant.Id, orgUuid, logger)
+	if errFindOrg != nil {
+		return nilComposite, errFindOrg
 	}
+
+	parentSector, errParent := sectorService.sectorDao.FindByUuid(*sectorReq.ParentUuid)
+	if errParent != nil {
+		return nilComposite, errParent
+	}
+
+	if parentSector == nilSector {
+		return nilComposite, errors.New(exceptions.SECTOR_NOT_FOUND)
+	}
+
+	// Create sector
+	parentId := sql.NullInt64{
+		Int64: parentSector.Id,
+		Valid: true,
+	}
+	nuuid := uuid.New().String()
+
+	sector := model.Sector{
+		TenantId:       tenant.Id,
+		OrganizationId: org.Id,
+		Code:           *sectorReq.Code,
+		Label:          *sectorReq.Label,
+		ParentId:       parentId,
+		Uuid:           nuuid,
+	}
+
+	sectorId, errCreate := sectorService.sectorDao.CreateSector(sector)
+	if errCreate != nil {
+		return nilComposite, errCreate
+	}
+
+	return sectorId, nil
 }

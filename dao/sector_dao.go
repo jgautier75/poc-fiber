@@ -46,8 +46,8 @@ func (s SectorDao) WithTxCreateSector(tx pgx.Tx, sector model.Sector) (model.Com
 	return compId, errQuery
 }
 
-func (s SectorDao) FindByTenantandOrganization(tenantId int64, organizationId int64) ([]model.Sector, error) {
-	selStmt := viper.GetString("sectors.findbytenantorg")
+func (s SectorDao) FindAllByTenantAndOrganization(tenantId int64, organizationId int64) ([]model.Sector, error) {
+	selStmt := viper.GetStringMapString(CONFIG_SECTORS)["findbytenantorg"]
 	rows, e := s.DbPool.Query(context.Background(), selStmt, tenantId, organizationId)
 	if e != nil {
 		return nil, e
@@ -59,4 +59,19 @@ func (s SectorDao) FindByTenantandOrganization(tenantId int64, organizationId in
 		return nil, errCollect
 	}
 	return sectors, nil
+}
+
+func (s SectorDao) FindByUuid(uuid string) (model.Sector, error) {
+	var nilSector model.Sector
+	selStmt := viper.GetStringMapString(CONFIG_SECTORS)["findbyuuid"]
+	rows, e := s.DbPool.Query(context.Background(), selStmt, uuid)
+	if e != nil {
+		return nilSector, e
+	}
+	defer rows.Close()
+	sector, errCollect := pgx.CollectOneRow(rows, pgx.RowToStructByName[model.Sector])
+	if errCollect != nil {
+		return nilSector, errCollect
+	}
+	return sector, nil
 }
