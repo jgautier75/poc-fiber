@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+const CONFIG_KEY = "sql.tenants"
+
 type TenantDao struct {
 	DbPool *pgxpool.Pool
 }
@@ -21,7 +23,7 @@ func NewTenantDao(pool *pgxpool.Pool) TenantDao {
 
 func (tenantDao *TenantDao) FindByCode(code string) (model.Tenant, error) {
 	var nilTenant model.Tenant
-	sqlTenantsMaps := viper.GetStringMapString("sql.tenants")
+	sqlTenantsMaps := viper.GetStringMapString(CONFIG_KEY)
 	rows, e := tenantDao.DbPool.Query(context.Background(), sqlTenantsMaps["findbycode"], code)
 	if e != nil {
 		return nilTenant, e
@@ -36,7 +38,7 @@ func (tenantDao *TenantDao) FindByCode(code string) (model.Tenant, error) {
 
 func (tenantDao *TenantDao) FindByUuid(uuid string) (model.Tenant, error) {
 	var nilTenant model.Tenant
-	sqlTenantsMaps := viper.GetStringMapString("sql.tenants")
+	sqlTenantsMaps := viper.GetStringMapString(CONFIG_KEY)
 	rows, e := tenantDao.DbPool.Query(context.Background(), sqlTenantsMaps["findbyuuid"], uuid)
 	if e != nil {
 		return nilTenant, e
@@ -50,7 +52,7 @@ func (tenantDao *TenantDao) FindByUuid(uuid string) (model.Tenant, error) {
 }
 
 func (tenantDao TenantDao) UpdateLabel(uuid string, newLabel string) error {
-	sqlTenantsMaps := viper.GetStringMapString("sql.tenants")
+	sqlTenantsMaps := viper.GetStringMapString(CONFIG_KEY)
 	_, errQuery := tenantDao.DbPool.Exec(context.Background(), sqlTenantsMaps["updatelabelbyuuid"], newLabel, uuid)
 	return errQuery
 }

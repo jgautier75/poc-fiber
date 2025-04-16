@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"net/url"
+	"poc-fiber/authentik"
+	"poc-fiber/commons"
 	"poc-fiber/converters"
 	"poc-fiber/dtos"
 	"poc-fiber/exceptions"
@@ -16,6 +18,7 @@ import (
 	"runtime"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/go-resty/resty/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/storage/redis"
@@ -26,10 +29,10 @@ import (
 
 const HEADER_STATE = "state"
 
-func MakeOrgFindAll(orgSvc services.OrganizationService) func(ctx *fiber.Ctx) error {
+func MakeOrgFindAll(orgSvc services.OrganizationService, logger zap.Logger) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
-		orgsList, errFindAll := orgSvc.FindAllOrganizations(tenantUuid)
+		orgsList, errFindAll := orgSvc.FindAllOrganizations(tenantUuid, logger)
 		if errFindAll != nil {
 			_ = ctx.SendStatus(fiber.StatusInternalServerError)
 			apiErr := exceptions.ConvertToInternalError(errFindAll)
@@ -156,6 +159,50 @@ func MakeSectorsFindAll(sectorsSvc services.SectorService, logger zap.Logger) fu
 			return ctx.JSON(sectorLightResponseList)
 		}
 	}
+}
+
+func DeleteSession(clientId string, clientSecret string, store *session.Store, oauthCfg *authentik.OauthConfiguration, logger zap.Logger) func(ctx *fiber.Ctx) error {
+	return func(ctx *fiber.Ctx) error {
+		httpSession, errSession := store.Get(ctx)
+		if errSession != nil {
+			apiError := exceptions.ConvertToFunctionalError(errSession, fiber.StatusBadRequest)
+			return ctx.Status(fiber.StatusBadRequest).JSON(apiError)
+		}
+		tkn := httpSession.Get(commons.SESSION_ATTR_TOKEN)
+		if tkn != nil {
+			client := resty.New()
+			client.SetDebug(true)
+			client.SetCloseConnection(true)
+			// https://datatracker.ietf.org/doc/html/rfc7009
+
+			// Delete access token
+			resAccess, errPostAccess := client.SetBasicAuth(clientId, clientSecret).R().SetFormData(map[string]string{
+				"token":           tkn.(oauth2.Token).AccessToken,
+				"token_type_hint": "access_token",
+			}).
+				SetHeader("Cache-Control", "no-cache").
+				Post(oauthCfg.RevocationEndpoint)
+			logDeleteToken(resAccess, errPostAccess, logger)
+
+			// Delete refresh token
+			resRefresh, errRefresh := client.SetBasicAuth(clientId, clientSecret).R().SetFormData(map[string]string{
+				"token":           tkn.(oauth2.Token).RefreshToken,
+				"token_type_hint": "refresh_token",
+			}).
+				SetHeader("Cache-Control", "no-cache").
+				Post(oauthCfg.RevocationEndpoint)
+			logDeleteToken(resRefresh, errRefresh, logger)
+		}
+		return httpSession.Destroy()
+	}
+}
+
+func logDeleteToken(response *resty.Response, errDelete error, logger zap.Logger) {
+	if errDelete != nil {
+		logger.Error("error deleting access token", zap.Error(errDelete))
+	}
+	var responseBody = string(response.Body())
+	logger.Info("response", zap.String("response body", responseBody))
 }
 
 func BuildFiberConfig(appName string) fiber.Config {

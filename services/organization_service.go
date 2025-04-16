@@ -78,8 +78,9 @@ func (orgService *OrganizationService) CreateOrganization(tenantUuid string, cod
 	return sectorCid, errCreateSector
 }
 
-func (orgService *OrganizationService) FindAllOrganizations(tenantUuid string) (dtos.OrgLightReponseList, error) {
+func (orgService *OrganizationService) FindAllOrganizations(tenantUuid string, logger zap.Logger) (dtos.OrgLightReponseList, error) {
 	var orgsResponse = dtos.OrgLightReponseList{}
+	logger.Info("find all organizations", zap.String("tenantUuid", tenantUuid))
 	tenant, errTenant := orgService.tenantDao.FindByUuid(tenantUuid)
 	if errTenant != nil {
 		return orgsResponse, errTenant

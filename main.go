@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"poc-fiber/authentik"
 	"poc-fiber/certificates"
 	"poc-fiber/dao"
 	"poc-fiber/endpoints"
@@ -74,8 +75,15 @@ func main() {
 		}
 		asyncOidcIssuer <- oidcprov
 	}()
-
 	provider = <-asyncOidcIssuer
+
+	var oauthConfig *authentik.OauthConfiguration
+	asyncOAuthConfig := make(chan *authentik.OauthConfiguration)
+	go func() {
+		authCfg := authentik.FetchOAuthConfiguration(viper.GetString("oauth2.issuer"), logger)
+		asyncOAuthConfig <- authCfg
+	}()
+	oauthConfig = <-asyncOAuthConfig
 
 	oauth2Config := oauth2.Config{
 		ClientID:     clientId,
@@ -113,14 +121,17 @@ func main() {
 	logger.Info("Application -> Setup")
 	app := fiber.New(fConfig)
 
+	logger.Info("Middleware -> Setup")
 	app.Use(middleware.NewApiOidcHandler(fullApiUri, versionsApi, provider, tokenVerifier, store, clientId, clientSecret))
 
-	app.Get(fullApiUri+"/tenants/:tenantUuid/organizations", endpoints.MakeOrgFindAll(orgService))
+	logger.Info("Endpoints -> Setup")
+	app.Get(fullApiUri+"/tenants/:tenantUuid/organizations", endpoints.MakeOrgFindAll(orgService, logger))
 	app.Get("/"+appContext+"/home", endpoints.MakeIndex(oauth2Config, store))
 	app.Get(oauthCallBackUri, endpoints.MakeOAuthCallback(oauth2Config, store, tokenVerifier))
 	app.Get(versionsApi, endpoints.MakeVersions(viper.GetString("app.version")))
 	app.Get(fullApiUri+"/tenants/:tenantUuid/organizations/:organizationUuid/sectors", endpoints.MakeSectorsFindAll(sectorService, logger))
 	app.Post(fullApiUri+"/tenants/:tenantUuid/organizations/:organizationUuid/sectors", endpoints.MakeSectorCreate(sectorService, logger))
+	app.Delete(fullApiUri+"/sessions", endpoints.DeleteSession(clientId, clientSecret, store, oauthConfig, logger))
 
 	go func() {
 		logger.Info("Application -> Listen TLS")
