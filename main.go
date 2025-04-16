@@ -100,11 +100,13 @@ func main() {
 	var tenantDao = dao.NewTenantDao(dbPool)
 	var orgDao = dao.NewOrganizationDao(dbPool)
 	var sectorDao = dao.NewSectorDao(dbPool)
+	var userDao = dao.NewUserDaao(dbPool)
 	var tenantFunctions = functions.NewTenantFunctions(tenantDao, logger)
 	var orgFunctions = functions.NewOrganizationsFunctions(orgDao, logger)
 
 	var orgService = services.NewOrganizationService(tenantDao, orgDao, sectorDao, logger)
 	var sectorService = services.NewSectorService(tenantFunctions, orgFunctions, sectorDao, logger)
+	var userService = services.NewUserService(tenantFunctions, orgFunctions, userDao, logger)
 
 	apiBaseUri := viper.GetString("app.server.api")
 	var fullApiUri = "/" + appContext + "/" + apiBaseUri
@@ -132,6 +134,7 @@ func main() {
 	app.Get(fullApiUri+"/tenants/:tenantUuid/organizations/:organizationUuid/sectors", endpoints.MakeSectorsFindAll(sectorService, logger))
 	app.Post(fullApiUri+"/tenants/:tenantUuid/organizations/:organizationUuid/sectors", endpoints.MakeSectorCreate(sectorService, logger))
 	app.Delete(fullApiUri+"/sessions", endpoints.DeleteSession(clientId, clientSecret, store, oauthConfig, logger))
+	app.Post(fullApiUri+"/tenants/:tenantUuid/organizations/:organizationUuid/users", endpoints.MakeUserCreate(userService, logger))
 
 	go func() {
 		logger.Info("Application -> Listen TLS")

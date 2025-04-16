@@ -114,6 +114,32 @@ func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *o
 	}
 }
 
+func MakeUserCreate(userService services.UserService, logger zap.Logger) func(ctx *fiber.Ctx) error {
+	return func(ctx *fiber.Ctx) error {
+		tenantUuid := ctx.Params("tenantUuid")
+		orgUuid := ctx.Params("organizationUuid")
+
+		// Deserialize request
+		userReq := dtos.CreateUserRequest{}
+		if err := ctx.BodyParser(&userReq); err != nil {
+			_ = ctx.SendStatus(fiber.StatusInternalServerError)
+			apiErr := exceptions.ConvertToInternalError(err)
+			return ctx.JSON(apiErr)
+		}
+		cid, errCreate := userService.CreateUser(tenantUuid, orgUuid, userReq, logger)
+		if errCreate != nil {
+			_ = ctx.SendStatus(fiber.StatusBadRequest)
+			apiErr := exceptions.ConvertToFunctionalError(errCreate, fiber.StatusBadRequest)
+			return ctx.JSON(apiErr)
+		}
+		uuidResponse := dtos.UuidResponse{
+			Uuid: cid.Uuid,
+		}
+		ctx.SendStatus(fiber.StatusOK)
+		return ctx.JSON(uuidResponse)
+	}
+}
+
 func MakeSectorCreate(sectorsSvc services.SectorService, logger zap.Logger) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
@@ -201,8 +227,7 @@ func logDeleteToken(response *resty.Response, errDelete error, logger zap.Logger
 	if errDelete != nil {
 		logger.Error("error deleting access token", zap.Error(errDelete))
 	}
-	var responseBody = string(response.Body())
-	logger.Info("response", zap.String("response body", responseBody))
+	logger.Info("response status", zap.String("response status", response.Status()))
 }
 
 func BuildFiberConfig(appName string) fiber.Config {
