@@ -134,6 +134,7 @@ func main() {
 	app.Get(fullApiUri+"/tenants/:tenantUuid/organizations/:organizationUuid/sectors", endpoints.MakeSectorsFindAll(sectorService, logger))
 	app.Post(fullApiUri+"/tenants/:tenantUuid/organizations/:organizationUuid/sectors", endpoints.MakeSectorCreate(sectorService, logger))
 	app.Delete(fullApiUri+"/sessions", endpoints.DeleteSession(clientId, clientSecret, store, oauthConfig, logger))
+	app.Get(fullApiUri+"/tenants/:tenantUuid/organizations/:organizationUuid/users", endpoints.MakUsersList(userService, logger))
 	app.Post(fullApiUri+"/tenants/:tenantUuid/organizations/:organizationUuid/users", endpoints.MakeUserCreate(userService, logger))
 
 	go func() {

@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"poc-fiber/commons"
+	"poc-fiber/converters"
 	"poc-fiber/dao"
 	"poc-fiber/dtos"
 	"poc-fiber/functions"
@@ -39,7 +40,7 @@ func (userService UserService) CreateUser(tenantUuid string, orgUuid string, cre
 		return nilComposite, errFindTenant
 	}
 	if tenant == nilTenant {
-		return nilComposite, errors.New(commons.UserNotFound)
+		return nilComposite, errors.New(commons.TenantNotFound)
 	}
 
 	// Ensure organization exists
@@ -84,4 +85,40 @@ func (userService UserService) CreateUser(tenantUuid string, orgUuid string, cre
 		return nilComposite, errCreate
 	}
 	return cid, nil
+}
+
+func (userService UserService) FindAllUsers(tenantUuid string, orgUuid string, logger zap.Logger) (dtos.UserListResponse, error) {
+	var nilTenant model.Tenant
+	var nilOrg model.Organization
+	var usersList = dtos.UserListResponse{}
+
+	// Ensure tenant exists
+	tenant, errFindTenant := userService.tenantFunctions.FindTenant(tenantUuid, logger)
+	if errFindTenant != nil {
+		return usersList, errFindTenant
+	}
+	if tenant == nilTenant {
+		return usersList, errors.New(commons.TenantNotFound)
+	}
+
+	// Ensure organization exists
+	org, errFindOrg := userService.orgsFunctions.FindOrganization(tenant.Id, orgUuid, logger)
+	if errFindOrg != nil {
+		return usersList, errFindOrg
+	}
+	if org == nilOrg {
+		return usersList, errors.New(commons.OrgNotFound)
+	}
+
+	users, errList := userService.userDao.FindAllByTenantAndOrganization(tenant.Id, org.Id)
+	if errList != nil {
+		return usersList, errList
+	}
+
+	userArray := make([]dtos.UserResponse, len(users))
+	for inc, usr := range users {
+		userArray[inc] = converters.ConvertUserToResponse(usr)
+	}
+	usersList.Users = userArray
+	return usersList, nil
 }

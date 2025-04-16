@@ -35,3 +35,4 @@ sql:
     create: "insert into users (tenants_id,organizations_id,uuid,last_name,first_name,login,email) values($1,$2,$3,$4,$5,$6,$7) returning id"
     loginExists: "select count(1) from users where login=$1"
     emailExists: "select count(1) from users where email=$1"
+    findAllByTenantAndOrg: "select id,tenants_id,organizations_id,uuid,last_name,first_name,login,email from users where tenants_id=$1 and organizations_id=$2"

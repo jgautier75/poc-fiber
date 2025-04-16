@@ -140,6 +140,21 @@ func MakeUserCreate(userService services.UserService, logger zap.Logger) func(ct
 	}
 }
 
+func MakUsersList(userService services.UserService, logger zap.Logger) func(ctx *fiber.Ctx) error {
+	return func(ctx *fiber.Ctx) error {
+		tenantUuid := ctx.Params("tenantUuid")
+		orgUuid := ctx.Params("organizationUuid")
+		userListResponse, errList := userService.FindAllUsers(tenantUuid, orgUuid, logger)
+		if errList != nil {
+			_ = ctx.SendStatus(fiber.StatusBadRequest)
+			apiErr := exceptions.ConvertToFunctionalError(errList, fiber.StatusBadRequest)
+			return ctx.JSON(apiErr)
+		}
+		ctx.SendStatus(fiber.StatusOK)
+		return ctx.JSON(userListResponse)
+	}
+}
+
 func MakeSectorCreate(sectorsSvc services.SectorService, logger zap.Logger) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")

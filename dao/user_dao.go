@@ -4,6 +4,7 @@ import (
 	"context"
 	"poc-fiber/model"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/viper"
 )
@@ -73,4 +74,19 @@ func (udao UserDao) EmailExists(email string) (bool, error) {
 		exists = true
 	}
 	return exists, nil
+}
+
+func (udao UserDao) FindAllByTenantAndOrganization(tenantId int64, orgId int64) ([]model.User, error) {
+	selStmt := viper.GetStringMapString(CONFIG_USERS)["findallbytenantandorg"]
+	rows, e := udao.DbPool.Query(context.Background(), selStmt, tenantId, orgId)
+	if e != nil {
+		return nil, e
+	}
+	defer rows.Close()
+
+	users, errCollect := pgx.CollectRows(rows, pgx.RowToStructByName[model.User])
+	if errCollect != nil {
+		return nil, errCollect
+	}
+	return users, nil
 }

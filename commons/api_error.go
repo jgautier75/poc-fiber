@@ -1,6 +1,7 @@
 package commons
 
 const (
+	TenantNotFound          = "tenant_not_found"
 	OrgAlreadyExistsByCode  = "org_already_exists"
 	OrgAlreadyExistsByLabel = "org_already_label"
 	OrgDoesNotExistByCode   = "org_does_not_exist"
