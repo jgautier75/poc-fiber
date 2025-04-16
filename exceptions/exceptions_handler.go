@@ -8,12 +8,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	TENANT_NOT_FOUND = "tenant_not_found"
-	ORG_NOT_FOUND    = "organization_not_found"
-	SECTOR_NOT_FOUND = "sector_not_found"
-)
-
 func ConvertToInternalError(err error) commons.ApiError {
 	errStack := errors.WithStack(err)
 	return commons.ApiError{

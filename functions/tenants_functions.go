@@ -2,8 +2,8 @@ package functions
 
 import (
 	"errors"
+	"poc-fiber/commons"
 	"poc-fiber/dao"
-	"poc-fiber/exceptions"
 	"poc-fiber/model"
 
 	"go.uber.org/zap"
@@ -30,7 +30,7 @@ func (tf *TenantFunctions) FindTenant(uuid string, logger zap.Logger) (model.Ten
 		return nilTenant, errFind
 	}
 	if tenant == nilTenant {
-		return nilTenant, errors.New(exceptions.TENANT_NOT_FOUND)
+		return nilTenant, errors.New(commons.TenantNotFound)
 	} else {
 		return tenant, nil
 	}

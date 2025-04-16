@@ -3,10 +3,10 @@ package services
 import (
 	"database/sql"
 	"errors"
+	"poc-fiber/commons"
 	"poc-fiber/converters"
 	"poc-fiber/dao"
 	"poc-fiber/dtos"
-	"poc-fiber/exceptions"
 	"poc-fiber/functions"
 	"poc-fiber/model"
 
@@ -94,7 +94,7 @@ func (sectorService *SectorService) CreateSector(tenantUuid string, orgUuid stri
 	}
 
 	if parentSector == nilSector {
-		return nilComposite, errors.New(exceptions.SECTOR_NOT_FOUND)
+		return nilComposite, errors.New(commons.SectorNotFound)
 	}
 
 	// Create sector

@@ -2,8 +2,8 @@ package functions
 
 import (
 	"errors"
+	"poc-fiber/commons"
 	"poc-fiber/dao"
-	"poc-fiber/exceptions"
 	"poc-fiber/model"
 
 	"go.uber.org/zap"
@@ -30,7 +30,7 @@ func (of *OrganizationsFunctions) FindOrganization(tenantId int64, uuid string, 
 		return nilOrg, errFind
 	}
 	if org == nilOrg {
-		return nilOrg, errors.New(exceptions.ORG_NOT_FOUND)
+		return nilOrg, errors.New(commons.OrgNotFound)
 	} else {
 		return org, nil
 	}
