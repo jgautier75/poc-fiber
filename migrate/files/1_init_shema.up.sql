@@ -1,7 +1,7 @@
 create sequence if not exists seq_tenants start with 1 no cycle;
 create table if not exists tenants(
     id bigint primary key default nextval('seq_tenants'),
-    uuid char(37) not null,
+    uuid char(36) not null,
     code varchar(50) not null,    
     label varchar(100) not null
 );
@@ -12,7 +12,7 @@ create sequence if not exists seq_organizations start with 1 no cycle;
 create table if not exists organizations (
     id bigint primary key default nextval('seq_organizations'),
     tenants_id bigint references tenants(id),
-    uuid char(37) not null,
+    uuid char(36) not null,
     code varchar(50) not null,
     label varchar(50) not null,
     type varchar(10) not null
@@ -25,7 +25,7 @@ create table if not exists sectors (
     id bigint primary key default nextval('seq_sectors'),
     tenants_id bigint not null not null references tenants(id),
     organizations_id bigint not null not null references organizations(id),
-    uuid char(37) not null,
+    uuid char(36) not null,
     code varchar(50) not null,
     label varchar(50) not null,
     parent_id bigint references sectors(id),
@@ -40,7 +40,7 @@ create table if not exists users(
     id bigint primary key default nextval('seq_users'),
     tenants_id bigint not null references tenants(id),
     organizations_id bigint not null references organizations(id),
-    uuid char(37) not null,
+    uuid char(36) not null,
     last_name varchar(50) not null,
     first_name varchar(50) not null,
     login varchar(50) not null,

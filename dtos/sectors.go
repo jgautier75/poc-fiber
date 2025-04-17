@@ -29,7 +29,7 @@ type SectorLightResponseList struct {
 }
 
 type SectorCreateRequest struct {
-	Code       *string `json:"code"`
-	Label      *string `json:"label"`
-	ParentUuid *string `json:"parent_uuid"`
+	Code       *string `json:"code" validate:"required,max=50"`
+	Label      *string `json:"label"  validate:"required,max=50"`
+	ParentUuid *string `json:"parent_uuid"  validate:"required,max=36"`
 }

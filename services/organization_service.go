@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"errors"
+	"poc-fiber/commons"
 	"poc-fiber/converters"
 	"poc-fiber/dao"
 	"poc-fiber/dtos"
@@ -28,14 +30,24 @@ func NewOrganizationService(tDao dao.TenantDao, oDao dao.OrganizationDao, sDao d
 	return orgService
 }
 
-func (orgService *OrganizationService) CreateOrganization(tenantUuid string, code string, label string, otype string) (model.CompositeId, error) {
+func (orgService *OrganizationService) CreateOrganization(tenantUuid string, orgCreateReq dtos.CreateOrgRequest) (model.CompositeId, error) {
+
+	var nilComposite model.CompositeId
 
 	// Find tenant
 	tenant, errorTenant := orgService.tenantDao.FindByUuid(tenantUuid)
 	if errorTenant != nil {
 		orgService.logger.Error("error find tenant [%w]", zap.Error(errorTenant))
 	}
-	var nilComposite model.CompositeId
+
+	codeUsed, errCode := orgService.organizationDao.ExistsByCode(*orgCreateReq.Code)
+	if errCode != nil {
+		return nilComposite, errCode
+	}
+
+	if codeUsed {
+		return nilComposite, errors.New(commons.OrgAlreadyExistsByCode)
+	}
 
 	// Get connection and init transaction
 	conn, errConnect := orgService.tenantDao.DbPool.Acquire(context.Background())
@@ -60,7 +72,7 @@ func (orgService *OrganizationService) CreateOrganization(tenantUuid string, cod
 		}
 	}()
 
-	orgCid, errCreateOrg := orgService.organizationDao.WithTxCreateOrganization(tx, tenant.Id, code, label, otype)
+	orgCid, errCreateOrg := orgService.organizationDao.WithTxCreateOrganization(tx, tenant.Id, *orgCreateReq.Code, *orgCreateReq.Label, *orgCreateReq.Type)
 	if errCreateOrg != nil {
 		orgService.logger.Error("error creating organization [%w]", zap.Error(errCreateOrg))
 	}
@@ -68,8 +80,8 @@ func (orgService *OrganizationService) CreateOrganization(tenantUuid string, cod
 	sector := model.Sector{}
 	sector.TenantId = tenant.Id
 	sector.OrganizationId = orgCid.Id
-	sector.Code = "root-" + code
-	sector.Label = label
+	sector.Code = "root-" + *orgCreateReq.Code
+	sector.Label = *orgCreateReq.Label
 	sector.Depth = 0
 	sector.HasParent = false
 

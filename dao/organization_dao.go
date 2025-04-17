@@ -81,3 +81,25 @@ func (orgDao *OrganizationDao) FindByTenantAndUuid(tenantId int64, orgUuid strin
 	}
 	return org, nil
 }
+
+func (orgDao *OrganizationDao) ExistsByCode(code string) (bool, error) {
+	selStmt := viper.GetStringMapString(CONFIG_ORGS)["existsbycode"]
+	rows, e := orgDao.DbPool.Query(context.Background(), selStmt, code)
+	if e != nil {
+		return false, e
+	}
+	defer rows.Close()
+	cnt := 0
+	for rows.Next() {
+		err := rows.Scan(&cnt)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	var exists = false
+	if cnt > 0 {
+		exists = true
+	}
+	return exists, nil
+}

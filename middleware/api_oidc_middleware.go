@@ -24,7 +24,7 @@ func NewApiOidcHandler(apiBaseUri string, renewRedirectUri string, provider *oid
 			auth := c.GetReqHeaders()[commons.HEADER_AUTHORIZATION]
 			sid := c.Cookies(commons.HEADER_SESSION_ID)
 			if auth != nil {
-				errAuth := checkAuthorization(c, verifier)
+				errAuth := checkAuthorizationHeader(c, verifier)
 				if errAuth != nil {
 					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errAuth, fiber.StatusUnauthorized))
 				}
@@ -33,7 +33,7 @@ func NewApiOidcHandler(apiBaseUri string, renewRedirectUri string, provider *oid
 				if errSession != nil {
 					c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errors.New("no session found"), fiber.StatusUnauthorized))
 				}
-				refreshToken, errSession := getRefreshTokenInSession(httpSession)
+				refreshToken, errSession := checkRefreshTokenInSession(httpSession)
 				if errSession != nil {
 					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errSession, fiber.StatusUnauthorized))
 				}
@@ -53,7 +53,7 @@ func NewApiOidcHandler(apiBaseUri string, renewRedirectUri string, provider *oid
 	}
 }
 
-func getRefreshTokenInSession(httpSession *session.Session) (string, error) {
+func checkRefreshTokenInSession(httpSession *session.Session) (string, error) {
 	var nilString string
 	tkn := httpSession.Get(commons.SESSION_ATTR_TOKEN)
 	var nilTkn interface{}
@@ -64,7 +64,7 @@ func getRefreshTokenInSession(httpSession *session.Session) (string, error) {
 	}
 }
 
-func checkAuthorization(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) error {
+func checkAuthorizationHeader(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) error {
 	auth := c.GetReqHeaders()[commons.HEADER_AUTHORIZATION]
 	if auth != nil {
 		if !strings.HasPrefix(auth[0], commons.HEADER_BEARER) {

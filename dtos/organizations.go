@@ -10,3 +10,9 @@ type OrgLightResponse struct {
 type OrgLightReponseList struct {
 	Orgs []OrgLightResponse `json:"orgs"`
 }
+
+type CreateOrgRequest struct {
+	Code  *string `json:"code" validate:"required,max=50"`
+	Label *string `json:"label" validate:"required,max=50"`
+	Type  *string `json:"type" validate:"required,max=10"`
+}

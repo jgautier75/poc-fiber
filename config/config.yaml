@@ -27,6 +27,7 @@ sql:
     updateLabelByUuid: "update organizations set label:=$1 where uuid:=$2"
     findAllDisplay: "select id,tenants_id,uuid,code,label,type from organizations where tenants_id=$1"
     findByTenantAndUuid: "select id,tenants_id,uuid,code,label,type from organizations where tenants_id=$1 and uuid=$2"
+    existsByCode: "select count(1) from code where code=$1"
   sectors:
     create: "insert into sectors (tenants_id,organizations_id,uuid,code,label,parent_id,has_parent,depth) values ($1,$2,$3,$4,$5,$6,$7,$8) returning id"
     findByTenantOrg: "select id,tenants_id,organizations_id,uuid,code,label,parent_id,has_parent,depth from sectors where tenants_id=$1 and organizations_id=$2"

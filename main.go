@@ -128,6 +128,7 @@ func main() {
 
 	logger.Info("Endpoints -> Setup")
 	app.Get(fullApiUri+"/tenants/:tenantUuid/organizations", endpoints.MakeOrgFindAll(orgService, logger))
+	app.Post(fullApiUri+"/tenants/:tenantUuid/organizations", endpoints.MakeOrgCreate(orgService, logger))
 	app.Get("/"+appContext+"/home", endpoints.MakeIndex(oauth2Config, store))
 	app.Get(oauthCallBackUri, endpoints.MakeOAuthCallback(oauth2Config, store, tokenVerifier))
 	app.Get(versionsApi, endpoints.MakeVersions(viper.GetString("app.version")))
