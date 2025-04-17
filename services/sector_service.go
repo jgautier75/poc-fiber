@@ -111,6 +111,7 @@ func (sectorService *SectorService) CreateSector(tenantUuid string, orgUuid stri
 		Label:          *sectorReq.Label,
 		ParentId:       parentId,
 		Uuid:           nuuid,
+		Depth:          parentSector.Depth + 1,
 	}
 
 	sectorId, errCreate := sectorService.sectorDao.CreateSector(sector)

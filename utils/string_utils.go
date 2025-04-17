@@ -10,7 +10,6 @@ import (
 )
 
 func NormalizeString(instr string) (res string) {
-
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	result, _, _ := transform.String(t, instr)
 	return strip(strings.ToLower(result))
