@@ -8,9 +8,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/otel"
 )
 
 const CONFIG_ORGS = "sql.organizations"
+const OTEL_TRACER_NAME = "go.opentelemetry.io/contrib/examples/otel-collector"
 
 type OrganizationDao struct {
 	DbPool *pgxpool.Pool
@@ -52,16 +54,22 @@ func (orgDao *OrganizationDao) updateLabel(uuid string, nlabel string) error {
 	return errQuery
 }
 
-func (orgDao *OrganizationDao) FindAllByTenantId(tenantId int64) ([]model.Organization, error) {
+func (orgDao *OrganizationDao) FindAllByTenantId(tenantId int64, parentContext context.Context) ([]model.Organization, error) {
 	var nilOrg []model.Organization
+
+	_, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "ORG-LIST-DAO")
+	defer span.End()
+
 	selStmt := viper.GetStringMapString(CONFIG_ORGS)["findalldisplay"]
 	rows, errQry := orgDao.DbPool.Query(context.Background(), selStmt, tenantId)
 	if errQry != nil {
+		span.RecordError(errQry)
 		return nil, errQry
 	}
 	defer rows.Close()
 	orgs, errCollect := pgx.CollectRows(rows, pgx.RowToStructByName[model.Organization])
 	if errCollect != nil {
+		span.RecordError(errCollect)
 		return nilOrg, errCollect
 	}
 	return orgs, nil

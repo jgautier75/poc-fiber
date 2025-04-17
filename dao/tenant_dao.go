@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/otel"
 )
 
 const CONFIG_KEY = "sql.tenants"
@@ -36,8 +37,12 @@ func (tenantDao *TenantDao) FindByCode(code string) (model.Tenant, error) {
 	return tenant, nil
 }
 
-func (tenantDao *TenantDao) FindByUuid(uuid string) (model.Tenant, error) {
+func (tenantDao *TenantDao) FindByUuid(uuid string, parentContext context.Context) (model.Tenant, error) {
 	var nilTenant model.Tenant
+
+	_, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "TENANT-FIND-DAO")
+	defer span.End()
+
 	sqlTenantsMaps := viper.GetStringMapString(CONFIG_KEY)
 	rows, e := tenantDao.DbPool.Query(context.Background(), sqlTenantsMaps["findbyuuid"], uuid)
 	if e != nil {

@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"context"
 	"errors"
 	"poc-fiber/commons"
 	"poc-fiber/dao"
@@ -25,7 +26,7 @@ func NewTenantFunctions(tenantDao dao.TenantDao, logger zap.Logger) TenantFuncti
 func (tf *TenantFunctions) FindTenant(uuid string, logger zap.Logger) (model.Tenant, error) {
 	var nilTenant model.Tenant
 	logger.Info("find tenant", zap.String("uuid", uuid))
-	tenant, errFind := tf.tenantDao.FindByUuid(uuid)
+	tenant, errFind := tf.tenantDao.FindByUuid(uuid, context.Background())
 	if errFind != nil {
 		return nilTenant, errFind
 	}

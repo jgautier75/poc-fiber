@@ -10,8 +10,11 @@ import (
 	"poc-fiber/model"
 
 	"github.com/jackc/pgx/v5"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
+
+const OTEL_TRACER_NAME = "go.opentelemetry.io/contrib/examples/otel-collector"
 
 type OrganizationService struct {
 	tenantDao       dao.TenantDao
@@ -35,7 +38,7 @@ func (orgService *OrganizationService) CreateOrganization(tenantUuid string, org
 	var nilComposite model.CompositeId
 
 	// Find tenant
-	tenant, errorTenant := orgService.tenantDao.FindByUuid(tenantUuid)
+	tenant, errorTenant := orgService.tenantDao.FindByUuid(tenantUuid, context.Background())
 	if errorTenant != nil {
 		orgService.logger.Error("error find tenant [%w]", zap.Error(errorTenant))
 	}
@@ -90,15 +93,21 @@ func (orgService *OrganizationService) CreateOrganization(tenantUuid string, org
 	return sectorCid, errCreateSector
 }
 
-func (orgService *OrganizationService) FindAllOrganizations(tenantUuid string, logger zap.Logger) (dtos.OrgLightReponseList, error) {
+func (orgService *OrganizationService) FindAllOrganizations(tenantUuid string, logger zap.Logger, parentContext context.Context) (dtos.OrgLightReponseList, error) {
 	var orgsResponse = dtos.OrgLightReponseList{}
+
+	c, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "ORG-LIST-SERVICE")
+	defer span.End()
+
 	logger.Info("find all organizations", zap.String("tenantUuid", tenantUuid))
-	tenant, errTenant := orgService.tenantDao.FindByUuid(tenantUuid)
+	tenant, errTenant := orgService.tenantDao.FindByUuid(tenantUuid, c)
 	if errTenant != nil {
+		span.RecordError(errTenant)
 		return orgsResponse, errTenant
 	}
-	orgs, errOrgs := orgService.organizationDao.FindAllByTenantId(tenant.Id)
+	orgs, errOrgs := orgService.organizationDao.FindAllByTenantId(tenant.Id, c)
 	if errOrgs != nil {
+		span.RecordError(errOrgs)
 		return orgsResponse, errOrgs
 	}
 	orgsResponse = converters.ConvertOrgEntityListToOrgLightList(orgs)
