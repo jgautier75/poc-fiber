@@ -3,14 +3,18 @@ package dao
 import (
 	"context"
 	"poc-fiber/model"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/viper"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/log/global"
 )
 
+const LOGGER_NAME = "OrganizationDao"
 const CONFIG_ORGS = "sql.organizations"
 const OTEL_TRACER_NAME = "go.opentelemetry.io/contrib/examples/otel-collector"
 
@@ -56,11 +60,14 @@ func (orgDao *OrganizationDao) updateLabel(uuid string, nlabel string) error {
 
 func (orgDao *OrganizationDao) FindAllByTenantId(tenantId int64, parentContext context.Context) ([]model.Organization, error) {
 	var nilOrg []model.Organization
-
-	_, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "ORG-LIST-DAO")
+	c, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "ORG-LIST-DAO")
 	defer span.End()
-
+	var traceId = span.SpanContext().TraceID().String()
+	var traceKey = log.String("trace_id", traceId)
+	var spanId = span.SpanContext().SpanID().String()
+	var spanKey = log.String("span_id", spanId)
 	selStmt := viper.GetStringMapString(CONFIG_ORGS)["findalldisplay"]
+	logRecord(c, "select statement ["+selStmt+"]", traceKey, spanKey)
 	rows, errQry := orgDao.DbPool.Query(context.Background(), selStmt, tenantId)
 	if errQry != nil {
 		span.RecordError(errQry)
@@ -72,6 +79,7 @@ func (orgDao *OrganizationDao) FindAllByTenantId(tenantId int64, parentContext c
 		span.RecordError(errCollect)
 		return nilOrg, errCollect
 	}
+	logRecord(c, "nb of results ["+(string)(len(orgs))+"]", traceKey, spanKey)
 	return orgs, nil
 }
 
@@ -110,4 +118,14 @@ func (orgDao *OrganizationDao) ExistsByCode(code string) (bool, error) {
 		exists = true
 	}
 	return exists, nil
+}
+
+func logRecord(c context.Context, message string, traceKey log.KeyValue, spanKey log.KeyValue) {
+	var logRecord log.Record
+	logRecord.SetTimestamp(time.Now())
+	logRecord.SetBody(log.StringValue(message))
+	logRecord.SetSeverity(log.SeverityInfo)
+	var serviceKey = log.String("service_name", viper.GetString("app.name"))
+	logRecord.AddAttributes(traceKey, spanKey, serviceKey)
+	global.GetLoggerProvider().Logger(LOGGER_NAME).Emit(c, logRecord)
 }

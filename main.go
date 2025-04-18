@@ -16,6 +16,7 @@ import (
 	"poc-fiber/logger"
 	"poc-fiber/middleware"
 	"poc-fiber/migrate"
+	"poc-fiber/opentelemetry"
 	"poc-fiber/services"
 	"syscall"
 	"time"
@@ -24,15 +25,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/spf13/viper"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.30.0"
 	"golang.org/x/oauth2"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -121,12 +117,12 @@ func main() {
 		panic(fmt.Errorf("error setting up opentelemetry resource [%w]", errResource))
 	}
 
-	grpcCLientCon, errGrpcCon := initGrpcConn(viper.GetString("otel.endpoint"))
+	grpcClientCon, errGrpcCon := opentelemetry.InitGrpcConn(viper.GetString("otel.endpoint"))
 	if errGrpcCon != nil {
 		panic(fmt.Errorf("error setting up opentelemetry grpc connection [%w]", errGrpcCon))
 	}
 
-	shutdownTracerProvider, err := initTracerProvider(context.Background(), otelResource, grpcCLientCon)
+	shutdownTracerProvider, err := opentelemetry.InitTracerProvider(context.Background(), otelResource, grpcClientCon)
 	if err != nil {
 		panic(fmt.Errorf("error setting up opentelemetry tracer provider [%w]", errGrpcCon))
 	}
@@ -135,6 +131,23 @@ func main() {
 			log.Fatalf("failed to shutdown TracerProvider: %s", err)
 		}
 	}()
+
+	loggerProvider, err := opentelemetry.InitLoggerProvider(context.Background(), otelResource, grpcClientCon)
+	if err != nil {
+		panic(err)
+	}
+	// Handle shutdown properly so nothing leaks.
+	defer func() {
+		if err := loggerProvider.Shutdown(context.Background()); err != nil {
+			fmt.Println(err)
+		}
+	}()
+
+	// Register as global logger provider so that it can be accessed global.LoggerProvider.
+	// Most log bridges use the global logger provider as default.
+	// If the global logger provider is not set then a no-op implementation
+	// is used, which fails to generate data.
+	global.SetLoggerProvider(loggerProvider)
 
 	//Setup Dao & Services
 	var tenantDao = dao.NewTenantDao(dbPool)
@@ -194,42 +207,4 @@ func main() {
 	<-c // This blocks the main thread until an interrupt is received
 	fmt.Println("Gracefully shutting down...")
 	_ = app.Shutdown()
-}
-
-func initGrpcConn(grpcEndpoint string) (*grpc.ClientConn, error) {
-	// It connects the OpenTelemetry Collector through local gRPC connection.
-	// You may replace `localhost:4317` with your endpoint.
-	conn, err := grpc.NewClient(grpcEndpoint,
-		// Note the use of insecure transport here. TLS is recommended in production.
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
-	}
-
-	return conn, err
-}
-
-func initTracerProvider(ctx context.Context, res *resource.Resource, conn *grpc.ClientConn) (func(context.Context) error, error) {
-	// Set up a trace exporter
-	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
-	}
-
-	// Register the trace exporter with a TracerProvider, using a batch
-	// span processor to aggregate spans before export.
-	bsp := sdktrace.NewBatchSpanProcessor(traceExporter)
-	tracerProvider := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithResource(res),
-		sdktrace.WithSpanProcessor(bsp),
-	)
-	otel.SetTracerProvider(tracerProvider)
-
-	// Set global propagator to tracecontext (the default is no-op).
-	otel.SetTextMapPropagator(propagation.TraceContext{})
-
-	// Shutdown will flush any remaining spans and shut down the exporter.
-	return tracerProvider.Shutdown, nil
 }
