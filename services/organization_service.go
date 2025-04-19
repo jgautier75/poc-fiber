@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const OTEL_TRACER_NAME = "go.opentelemetry.io/contrib/examples/otel-collector"
+const OTEL_TRACER_NAME = "otel-collector"
 
 type OrganizationService struct {
 	tenantDao       dao.TenantDao
@@ -33,19 +33,23 @@ func NewOrganizationService(tDao dao.TenantDao, oDao dao.OrganizationDao, sDao d
 	return orgService
 }
 
-func (orgService *OrganizationService) CreateOrganization(tenantUuid string, orgCreateReq dtos.CreateOrgRequest) (model.CompositeId, error) {
-
+func (orgService *OrganizationService) CreateOrganization(tenantUuid string, orgCreateReq dtos.CreateOrgRequest, parentContext context.Context) (model.CompositeId, error) {
 	var nilComposite model.CompositeId
+
+	c, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "ORG-LIST-SERVICE")
+	defer span.End()
 
 	// Find tenant
 	tenant, errorTenant := orgService.tenantDao.FindByUuid(tenantUuid, context.Background())
 	if errorTenant != nil {
 		orgService.logger.Error("error find tenant [%w]", zap.Error(errorTenant))
+		return nilComposite, errorTenant
 	}
 
-	codeUsed, errCode := orgService.organizationDao.ExistsByCode(*orgCreateReq.Code)
-	if errCode != nil {
-		return nilComposite, errCode
+	codeUsed, errOrg := orgService.organizationDao.ExistsByCode(*orgCreateReq.Code, c)
+	if errOrg != nil {
+		orgService.logger.Error("error find organization [%w]", zap.Error(errOrg))
+		return nilComposite, errOrg
 	}
 
 	if codeUsed {
@@ -66,18 +70,21 @@ func (orgService *OrganizationService) CreateOrganization(tenantUuid string, org
 			errRbk := tx.Rollback(context.Background())
 			if errRbk != nil {
 				orgService.logger.Error("rollbak error [%w]", zap.Error(errRbk))
+				span.RecordError(errRbk)
 			}
 		} else {
 			errCmt := tx.Commit(context.Background())
 			if errCmt != nil {
+				span.RecordError(errCmt)
 				orgService.logger.Error("commit error [%w]", zap.Error(errCmt))
 			}
 		}
 	}()
 
-	orgCid, errCreateOrg := orgService.organizationDao.WithTxCreateOrganization(tx, tenant.Id, *orgCreateReq.Code, *orgCreateReq.Label, *orgCreateReq.Type)
+	orgCid, errCreateOrg := orgService.organizationDao.WithTxCreateOrganization(tx, tenant.Id, *orgCreateReq.Code, *orgCreateReq.Label, *orgCreateReq.Type, c)
 	if errCreateOrg != nil {
-		orgService.logger.Error("error creating organization [%w]", zap.Error(errCreateOrg))
+		span.RecordError(errCreateOrg)
+		return nilComposite, errCreateOrg
 	}
 
 	sector := model.Sector{}
@@ -88,7 +95,7 @@ func (orgService *OrganizationService) CreateOrganization(tenantUuid string, org
 	sector.Depth = 0
 	sector.HasParent = false
 
-	sectorCid, errCreateSector := orgService.sectorDao.WithTxCreateSector(tx, sector)
+	sectorCid, errCreateSector := orgService.sectorDao.WithTxCreateSector(tx, sector, c)
 
 	return sectorCid, errCreateSector
 }

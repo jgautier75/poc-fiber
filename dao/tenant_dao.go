@@ -22,8 +22,12 @@ func NewTenantDao(pool *pgxpool.Pool) TenantDao {
 	return tenantDao
 }
 
-func (tenantDao *TenantDao) FindByCode(code string) (model.Tenant, error) {
+func (tenantDao *TenantDao) FindByCode(code string, parentContext context.Context) (model.Tenant, error) {
 	var nilTenant model.Tenant
+
+	_, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "DAO-TENANT-FIND_BY_CODE")
+	defer span.End()
+
 	sqlTenantsMaps := viper.GetStringMapString(CONFIG_KEY)
 	rows, e := tenantDao.DbPool.Query(context.Background(), sqlTenantsMaps["findbycode"], code)
 	if e != nil {
@@ -40,7 +44,7 @@ func (tenantDao *TenantDao) FindByCode(code string) (model.Tenant, error) {
 func (tenantDao *TenantDao) FindByUuid(uuid string, parentContext context.Context) (model.Tenant, error) {
 	var nilTenant model.Tenant
 
-	_, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "TENANT-FIND-DAO")
+	_, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "DAO-TENANT-FIND_BY_UUID")
 	defer span.End()
 
 	sqlTenantsMaps := viper.GetStringMapString(CONFIG_KEY)

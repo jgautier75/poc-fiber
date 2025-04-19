@@ -1,6 +1,7 @@
 package endpoints
 
 import (
+	"poc-fiber/commons"
 	"poc-fiber/converters"
 	"poc-fiber/dtos"
 	"poc-fiber/exceptions"
@@ -8,6 +9,7 @@ import (
 	"poc-fiber/validation"
 
 	"github.com/gofiber/fiber/v2"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
 
@@ -15,6 +17,9 @@ func MakeSectorCreate(sectorsSvc services.SectorService, logger zap.Logger) func
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
+
+		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-SECTOR-CREATE")
+		defer span.End()
 
 		// Deserialize request
 		sectorReq := dtos.SectorCreateRequest{}
@@ -32,11 +37,18 @@ func MakeSectorCreate(sectorsSvc services.SectorService, logger zap.Logger) func
 			return ctx.JSON(apiError)
 		}
 
-		cid, errCreate := sectorsSvc.CreateSector(tenantUuid, orgUuid, sectorReq, logger)
+		// Create sector
+		cid, errCreate := sectorsSvc.CreateSector(tenantUuid, orgUuid, sectorReq, c)
 		if errCreate != nil {
-			_ = ctx.SendStatus(fiber.StatusBadRequest)
-			apiErr := exceptions.ConvertToFunctionalError(errCreate, fiber.StatusBadRequest)
-			return ctx.JSON(apiErr)
+			var targetHttpStatus = commons.GuessHttpStatus(errCreate)
+			_ = ctx.SendStatus(targetHttpStatus)
+			if commons.IsKnownFunctionalError(errCreate) {
+				apiErr := exceptions.ConvertToFunctionalError(errCreate, targetHttpStatus)
+				return ctx.JSON(apiErr)
+			} else {
+				apiErr := exceptions.ConvertToInternalError(errCreate)
+				return ctx.JSON(apiErr)
+			}
 		}
 		uuidResponse := dtos.UuidResponse{
 			Uuid: cid.Uuid,
@@ -50,16 +62,26 @@ func MakeSectorsFindAll(sectorsSvc services.SectorService, logger zap.Logger) fu
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
-		sectorsList, errFindAll := sectorsSvc.FindSectorsByTenantAndOrganization(tenantUuid, orgUuid, logger)
+
+		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-SECTOR-LIST")
+		defer span.End()
+
+		sectorsList, errFindAll := sectorsSvc.FindSectorsByTenantAndOrganization(tenantUuid, orgUuid, c)
 		sectorLightResponse := converters.BuildSectorsLightHierarchy(sectorsList)
 		var sectorLightResponseList = dtos.SectorLightResponseList{
 			Sectors: sectorLightResponse,
 		}
 
 		if errFindAll != nil {
-			_ = ctx.SendStatus(fiber.StatusBadRequest)
-			apiErr := exceptions.ConvertToFunctionalError(errFindAll, fiber.StatusBadRequest)
-			return ctx.JSON(apiErr)
+			var targetHttpStatus = commons.GuessHttpStatus(errFindAll)
+			_ = ctx.SendStatus(targetHttpStatus)
+			if commons.IsKnownFunctionalError(errFindAll) {
+				apiErr := exceptions.ConvertToFunctionalError(errFindAll, targetHttpStatus)
+				return ctx.JSON(apiErr)
+			} else {
+				apiErr := exceptions.ConvertToInternalError(errFindAll)
+				return ctx.JSON(apiErr)
+			}
 		} else {
 			_ = ctx.SendStatus(fiber.StatusOK)
 			return ctx.JSON(sectorLightResponseList)

@@ -2,12 +2,15 @@ package dao
 
 import (
 	"context"
+	"poc-fiber/logger"
 	"poc-fiber/model"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/otel"
 )
 
 const CONFIG_SECTORS = "sql.sectors"
@@ -22,7 +25,10 @@ func NewSectorDao(pool *pgxpool.Pool) SectorDao {
 	return sectorDao
 }
 
-func (sectorDao *SectorDao) CreateSector(sector model.Sector) (model.CompositeId, error) {
+func (sectorDao *SectorDao) CreateSector(sector model.Sector, parentContext context.Context) (model.CompositeId, error) {
+	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "FUNC-SECTOR-CREATE")
+	defer span.End()
+
 	insertStmt := viper.GetStringMapString(CONFIG_SECTORS)["create"]
 	nuuid := uuid.New().String()
 	var id int64
@@ -34,7 +40,10 @@ func (sectorDao *SectorDao) CreateSector(sector model.Sector) (model.CompositeId
 	return compId, errQuery
 }
 
-func (s SectorDao) WithTxCreateSector(tx pgx.Tx, sector model.Sector) (model.CompositeId, error) {
+func (s SectorDao) WithTxCreateSector(tx pgx.Tx, sector model.Sector, parentContext context.Context) (model.CompositeId, error) {
+	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "FUNC-SECTOR-CREATE_WITH_TX")
+	defer span.End()
+
 	insertStmt := viper.GetStringMapString(CONFIG_SECTORS)["create"]
 	nuuid := uuid.New().String()
 	var id int64
@@ -46,7 +55,10 @@ func (s SectorDao) WithTxCreateSector(tx pgx.Tx, sector model.Sector) (model.Com
 	return compId, errQuery
 }
 
-func (s SectorDao) FindAllByTenantAndOrganization(tenantId int64, organizationId int64) ([]model.Sector, error) {
+func (s SectorDao) FindAllByTenantAndOrganization(tenantId int64, organizationId int64, parentContext context.Context) ([]model.Sector, error) {
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "FUNC-SECTOR-FIND_ALL_FOR_ORG")
+	defer span.End()
+
 	selStmt := viper.GetStringMapString(CONFIG_SECTORS)["findbytenantorg"]
 	rows, e := s.DbPool.Query(context.Background(), selStmt, tenantId, organizationId)
 	if e != nil {
@@ -58,11 +70,16 @@ func (s SectorDao) FindAllByTenantAndOrganization(tenantId int64, organizationId
 	if errCollect != nil {
 		return nil, errCollect
 	}
+	logger.LogRecord(c, LOGGER_NAME, "nb of results ["+strconv.Itoa(len(sectors))+"]")
 	return sectors, nil
 }
 
-func (s SectorDao) FindByUuid(uuid string) (model.Sector, error) {
+func (s SectorDao) FindByUuid(uuid string, parentContext context.Context) (model.Sector, error) {
 	var nilSector model.Sector
+
+	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "FUNC-SECTOR-FIND_BY_UUID")
+	defer span.End()
+
 	selStmt := viper.GetStringMapString(CONFIG_SECTORS)["findbyuuid"]
 	rows, e := s.DbPool.Query(context.Background(), selStmt, uuid)
 	if e != nil {

@@ -55,10 +55,11 @@ func main() {
 	certificates.GenerateSelfSignedCerts(logger)
 
 	// Perform SQL Migration
-	migrate.PerformMigration(logger, viper.GetString("app.pgUrl"))
+	pgUrl := viper.GetString("app.pgUrl")
+	migrate.PerformMigration(logger, pgUrl)
 
 	//Setup rdbms connection pool
-	dbPool, poolErr := infrastructure.SetupCnxPool(viper.GetString("app.pgUrl"), viper.GetInt32("app.pgPoolMin"), viper.GetInt32("app.pgPoolMax"), logger)
+	dbPool, poolErr := infrastructure.SetupCnxPool(pgUrl, viper.GetInt32("app.pgPoolMin"), viper.GetInt32("app.pgPoolMax"), logger)
 	if poolErr != nil {
 		panic(poolErr)
 	}
@@ -71,12 +72,13 @@ func main() {
 	appPort := viper.GetString("app.server.port")
 	oauthCallBackUri := "/" + appContext + "/oauth2/callback"
 	oauthCallBackFull := appBase + ":" + appPort + oauthCallBackUri
+	oauth2Issuer := viper.GetString("oauth2.issuer")
 
 	// Setup OIDC - Fetch .well-known endpoint  asynchronously
 	var provider *oidc.Provider
 	asyncOidcIssuer := make(chan *oidc.Provider, 1)
 	go func() {
-		oidcprov, oidcError := oidc.NewProvider(context.Background(), viper.GetString("oauth2.issuer"))
+		oidcprov, oidcError := oidc.NewProvider(context.Background(), oauth2Issuer)
 		if oidcError != nil {
 			panic(fmt.Errorf("oidc prodider error: [%w]", oidcError))
 		}
@@ -84,10 +86,11 @@ func main() {
 	}()
 	provider = <-asyncOidcIssuer
 
+	// Fetch OIDC well-known uri asynchronously
 	var oauthConfig *authentik.OauthConfiguration
 	asyncOAuthConfig := make(chan *authentik.OauthConfiguration)
 	go func() {
-		authCfg := authentik.FetchOAuthConfiguration(viper.GetString("oauth2.issuer"), logger)
+		authCfg := authentik.FetchOAuthConfiguration(oauth2Issuer, logger)
 		asyncOAuthConfig <- authCfg
 	}()
 	oauthConfig = <-asyncOAuthConfig
@@ -117,6 +120,7 @@ func main() {
 		panic(fmt.Errorf("error setting up opentelemetry resource [%w]", errResource))
 	}
 
+	// Initialize GRPC connection to opentelemetry-collector
 	grpcClientCon, errGrpcCon := opentelemetry.InitGrpcConn(viper.GetString("otel.endpoint"))
 	if errGrpcCon != nil {
 		panic(fmt.Errorf("error setting up opentelemetry grpc connection [%w]", errGrpcCon))
@@ -165,8 +169,8 @@ func main() {
 	var fullApiUri = "/" + appContext + "/" + apiBaseUri
 	var versionsApi = fullApiUri + "/versions"
 	var apiOrgsPrefix = fullApiUri + "/tenants/:tenantUuid/organizations"
-	var apiSectorsPrefix = fullApiUri + apiOrgsPrefix + "/:organizationUuid/sectors"
-	var apiUsersPrefix = fullApiUri + apiOrgsPrefix + "/:organizationUuid/users"
+	var apiSectorsPrefix = apiOrgsPrefix + "/:organizationUuid/sectors"
+	var apiUsersPrefix = apiOrgsPrefix + "/:organizationUuid/users"
 
 	// Redis setup (session storage)
 	defCfg := session.ConfigDefault

@@ -2,21 +2,20 @@ package dao
 
 import (
 	"context"
+	"poc-fiber/logger"
 	"poc-fiber/model"
-	"time"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/viper"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/log"
-	"go.opentelemetry.io/otel/log/global"
 )
 
 const LOGGER_NAME = "OrganizationDao"
 const CONFIG_ORGS = "sql.organizations"
-const OTEL_TRACER_NAME = "go.opentelemetry.io/contrib/examples/otel-collector"
+const OTEL_TRACER_NAME = "otel-collector"
 
 type OrganizationDao struct {
 	DbPool *pgxpool.Pool
@@ -28,7 +27,10 @@ func NewOrganizationDao(pool *pgxpool.Pool) OrganizationDao {
 	return orgDao
 }
 
-func (orgDao *OrganizationDao) CreateOrganization(tenantId int64, code string, label string, otype string) (model.CompositeId, error) {
+func (orgDao *OrganizationDao) CreateOrganization(tenantId int64, code string, label string, otype string, parentContext context.Context) (model.CompositeId, error) {
+	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-ORG-CREATE")
+	defer span.End()
+
 	insertStmt := viper.GetStringMapString(CONFIG_ORGS)["create"]
 	nuuid := uuid.New().String()
 	var id int64
@@ -40,7 +42,10 @@ func (orgDao *OrganizationDao) CreateOrganization(tenantId int64, code string, l
 	return compId, errQuery
 }
 
-func (orgDao *OrganizationDao) WithTxCreateOrganization(tx pgx.Tx, tenantId int64, code string, label string, otype string) (model.CompositeId, error) {
+func (orgDao *OrganizationDao) WithTxCreateOrganization(tx pgx.Tx, tenantId int64, code string, label string, otype string, parentContext context.Context) (model.CompositeId, error) {
+	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-ORG-CREATE_TX")
+	defer span.End()
+
 	insertStmt := viper.GetStringMapString(CONFIG_ORGS)["create"]
 	nuuid := uuid.New().String()
 	var id int64
@@ -60,14 +65,10 @@ func (orgDao *OrganizationDao) updateLabel(uuid string, nlabel string) error {
 
 func (orgDao *OrganizationDao) FindAllByTenantId(tenantId int64, parentContext context.Context) ([]model.Organization, error) {
 	var nilOrg []model.Organization
-	c, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "ORG-LIST-DAO")
+	c, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "DAO-ORG-LIST")
 	defer span.End()
-	var traceId = span.SpanContext().TraceID().String()
-	var traceKey = log.String("trace_id", traceId)
-	var spanId = span.SpanContext().SpanID().String()
-	var spanKey = log.String("span_id", spanId)
 	selStmt := viper.GetStringMapString(CONFIG_ORGS)["findalldisplay"]
-	logRecord(c, "select statement ["+selStmt+"]", traceKey, spanKey)
+	logger.LogRecord(c, LOGGER_NAME, "select statement ["+selStmt+"]")
 	rows, errQry := orgDao.DbPool.Query(context.Background(), selStmt, tenantId)
 	if errQry != nil {
 		span.RecordError(errQry)
@@ -79,12 +80,16 @@ func (orgDao *OrganizationDao) FindAllByTenantId(tenantId int64, parentContext c
 		span.RecordError(errCollect)
 		return nilOrg, errCollect
 	}
-	logRecord(c, "nb of results ["+(string)(len(orgs))+"]", traceKey, spanKey)
+	logger.LogRecord(c, LOGGER_NAME, "nb of results ["+strconv.Itoa(len(orgs))+"]")
 	return orgs, nil
 }
 
-func (orgDao *OrganizationDao) FindByTenantAndUuid(tenantId int64, orgUuid string) (model.Organization, error) {
+func (orgDao *OrganizationDao) FindByTenantAndUuid(tenantId int64, orgUuid string, parentContext context.Context) (model.Organization, error) {
 	var nilOrg model.Organization
+
+	_, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "DAO-ORG-FIND_BY_UUID")
+	defer span.End()
+
 	sqlOrgsMaps := viper.GetStringMapString(CONFIG_ORGS)
 	rows, e := orgDao.DbPool.Query(context.Background(), sqlOrgsMaps["findbytenantanduuid"], tenantId, orgUuid)
 	if e != nil {
@@ -98,7 +103,10 @@ func (orgDao *OrganizationDao) FindByTenantAndUuid(tenantId int64, orgUuid strin
 	return org, nil
 }
 
-func (orgDao *OrganizationDao) ExistsByCode(code string) (bool, error) {
+func (orgDao *OrganizationDao) ExistsByCode(code string, parentContext context.Context) (bool, error) {
+	c, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "DAO-ORG-EXISTS_BY_CODE")
+	defer span.End()
+
 	selStmt := viper.GetStringMapString(CONFIG_ORGS)["existsbycode"]
 	rows, e := orgDao.DbPool.Query(context.Background(), selStmt, code)
 	if e != nil {
@@ -117,15 +125,6 @@ func (orgDao *OrganizationDao) ExistsByCode(code string) (bool, error) {
 	if cnt > 0 {
 		exists = true
 	}
+	logger.LogRecord(c, LOGGER_NAME, "exists by code ["+code+"]: "+strconv.FormatBool(exists))
 	return exists, nil
-}
-
-func logRecord(c context.Context, message string, traceKey log.KeyValue, spanKey log.KeyValue) {
-	var logRecord log.Record
-	logRecord.SetTimestamp(time.Now())
-	logRecord.SetBody(log.StringValue(message))
-	logRecord.SetSeverity(log.SeverityInfo)
-	var serviceKey = log.String("service_name", viper.GetString("app.name"))
-	logRecord.AddAttributes(traceKey, spanKey, serviceKey)
-	global.GetLoggerProvider().Logger(LOGGER_NAME).Emit(c, logRecord)
 }

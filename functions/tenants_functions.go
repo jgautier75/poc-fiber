@@ -5,8 +5,10 @@ import (
 	"errors"
 	"poc-fiber/commons"
 	"poc-fiber/dao"
+	"poc-fiber/logger"
 	"poc-fiber/model"
 
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
 
@@ -23,10 +25,14 @@ func NewTenantFunctions(tenantDao dao.TenantDao, logger zap.Logger) TenantFuncti
 	return tenantFunctions
 }
 
-func (tf *TenantFunctions) FindTenant(uuid string, logger zap.Logger) (model.Tenant, error) {
+func (tf *TenantFunctions) FindTenant(uuid string, parentContext context.Context) (model.Tenant, error) {
 	var nilTenant model.Tenant
-	logger.Info("find tenant", zap.String("uuid", uuid))
-	tenant, errFind := tf.tenantDao.FindByUuid(uuid, context.Background())
+
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "TENANT-FIND-FUNC")
+	defer span.End()
+
+	logger.LogRecord(c, "TenantsFunctions", "find tenant ["+uuid+"]")
+	tenant, errFind := tf.tenantDao.FindByUuid(uuid, c)
 	if errFind != nil {
 		return nilTenant, errFind
 	}

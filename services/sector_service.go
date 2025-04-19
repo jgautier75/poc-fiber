@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"poc-fiber/commons"
@@ -8,10 +9,11 @@ import (
 	"poc-fiber/dao"
 	"poc-fiber/dtos"
 	"poc-fiber/functions"
+	"poc-fiber/logger"
 	"poc-fiber/model"
 
 	"github.com/google/uuid"
-
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
 
@@ -30,22 +32,25 @@ func NewSectorService(tenantFunctions functions.TenantFunctions, orgsFunctions f
 	return sectorService
 }
 
-func (sectorService *SectorService) FindSectorsByTenantAndOrganization(tenantUuid string, organizationUuid string, logger zap.Logger) (dtos.SectorResponseList, error) {
+func (sectorService *SectorService) FindSectorsByTenantAndOrganization(tenantUuid string, organizationUuid string, parentContext context.Context) (dtos.SectorResponseList, error) {
 	var sectorsList = dtos.SectorResponseList{}
 
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "SECTOR-FIND-SERVICE")
+	defer span.End()
+
 	// Ensure tenant exists
-	tenant, errFindTenant := sectorService.tenantFunctions.FindTenant(tenantUuid, logger)
+	tenant, errFindTenant := sectorService.tenantFunctions.FindTenant(tenantUuid, c)
 	if errFindTenant != nil {
 		return sectorsList, errFindTenant
 	}
 
 	// Ensure organization exists
-	org, errFindOrg := sectorService.orgsFunctions.FindOrganization(tenant.Id, organizationUuid, logger)
+	org, errFindOrg := sectorService.orgsFunctions.FindOrganization(tenant.Id, organizationUuid, c)
 	if errFindOrg != nil {
 		return sectorsList, errFindOrg
 	}
 
-	sectors, errSectors := sectorService.sectorDao.FindAllByTenantAndOrganization(tenant.Id, org.Id)
+	sectors, errSectors := sectorService.sectorDao.FindAllByTenantAndOrganization(tenant.Id, org.Id, c)
 	if errSectors != nil {
 		return sectorsList, errSectors
 	}
@@ -72,23 +77,26 @@ func (sectorService *SectorService) FindSectorsByTenantAndOrganization(tenantUui
 	return sectorsList, nil
 }
 
-func (sectorService *SectorService) CreateSector(tenantUuid string, orgUuid string, sectorReq dtos.SectorCreateRequest, logger zap.Logger) (model.CompositeId, error) {
+func (sectorService *SectorService) CreateSector(tenantUuid string, orgUuid string, sectorReq dtos.SectorCreateRequest, parentContext context.Context) (model.CompositeId, error) {
 	var nilComposite model.CompositeId
 	var nilSector model.Sector
 
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "SECTOR-CREATE-SERVICE")
+	defer span.End()
+
 	// Ensure tenant exists
-	tenant, errFindTenant := sectorService.tenantFunctions.FindTenant(tenantUuid, logger)
+	tenant, errFindTenant := sectorService.tenantFunctions.FindTenant(tenantUuid, c)
 	if errFindTenant != nil {
 		return nilComposite, errFindTenant
 	}
 
 	// Ensure organization exists
-	org, errFindOrg := sectorService.orgsFunctions.FindOrganization(tenant.Id, orgUuid, logger)
+	org, errFindOrg := sectorService.orgsFunctions.FindOrganization(tenant.Id, orgUuid, c)
 	if errFindOrg != nil {
 		return nilComposite, errFindOrg
 	}
 
-	parentSector, errParent := sectorService.sectorDao.FindByUuid(*sectorReq.ParentUuid)
+	parentSector, errParent := sectorService.sectorDao.FindByUuid(*sectorReq.ParentUuid, c)
 	if errParent != nil {
 		return nilComposite, errParent
 	}
@@ -114,7 +122,7 @@ func (sectorService *SectorService) CreateSector(tenantUuid string, orgUuid stri
 		Depth:          parentSector.Depth + 1,
 	}
 
-	sectorId, errCreate := sectorService.sectorDao.CreateSector(sector)
+	sectorId, errCreate := sectorService.sectorDao.CreateSector(sector, c)
 	if errCreate != nil {
 		return nilComposite, errCreate
 	}

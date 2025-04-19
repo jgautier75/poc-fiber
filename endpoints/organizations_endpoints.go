@@ -1,6 +1,7 @@
 package endpoints
 
 import (
+	"poc-fiber/commons"
 	"poc-fiber/dtos"
 	"poc-fiber/exceptions"
 	"poc-fiber/services"
@@ -11,19 +12,25 @@ import (
 	"go.uber.org/zap"
 )
 
-const OTEL_TRACER_NAME = "go.opentelemetry.io/contrib/examples/otel-collector"
+const OTEL_TRACER_NAME = "otel-collector"
 
 func MakeOrgFindAll(orgSvc services.OrganizationService, logger zap.Logger) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
-		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "ORG-LIST-API")
+		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-ORG-LIST")
 		defer span.End()
 		tenantUuid := ctx.Params("tenantUuid")
 		orgsList, errFindAll := orgSvc.FindAllOrganizations(tenantUuid, logger, c)
 		if errFindAll != nil {
-			_ = ctx.SendStatus(fiber.StatusInternalServerError)
-			apiErr := exceptions.ConvertToInternalError(errFindAll)
 			span.RecordError(errFindAll)
-			return ctx.JSON(apiErr)
+			var targetHttpStatus = commons.GuessHttpStatus(errFindAll)
+			_ = ctx.SendStatus(targetHttpStatus)
+			if commons.IsKnownFunctionalError(errFindAll) {
+				apiErr := exceptions.ConvertToFunctionalError(errFindAll, targetHttpStatus)
+				return ctx.JSON(apiErr)
+			} else {
+				apiErr := exceptions.ConvertToInternalError(errFindAll)
+				return ctx.JSON(apiErr)
+			}
 		} else {
 			_ = ctx.SendStatus(fiber.StatusOK)
 			return ctx.JSON(orgsList)
@@ -33,6 +40,10 @@ func MakeOrgFindAll(orgSvc services.OrganizationService, logger zap.Logger) func
 
 func MakeOrgCreate(orgSvc services.OrganizationService, logger zap.Logger) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
+
+		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-ORG-CREATE")
+		defer span.End()
+
 		tenantUuid := ctx.Params("tenantUuid")
 		var orgCreateReq = dtos.CreateOrgRequest{}
 		if err := ctx.BodyParser(&orgCreateReq); err != nil {
@@ -49,11 +60,18 @@ func MakeOrgCreate(orgSvc services.OrganizationService, logger zap.Logger) func(
 			return ctx.JSON(apiError)
 		}
 
-		cid, errFindAll := orgSvc.CreateOrganization(tenantUuid, orgCreateReq)
+		// Create organization
+		cid, errFindAll := orgSvc.CreateOrganization(tenantUuid, orgCreateReq, c)
 		if errFindAll != nil {
-			_ = ctx.SendStatus(fiber.StatusInternalServerError)
-			apiErr := exceptions.ConvertToInternalError(errFindAll)
-			return ctx.JSON(apiErr)
+			var targetHttpStatus = commons.GuessHttpStatus(errFindAll)
+			_ = ctx.SendStatus(targetHttpStatus)
+			if commons.IsKnownFunctionalError(errFindAll) {
+				apiErr := exceptions.ConvertToFunctionalError(errFindAll, targetHttpStatus)
+				return ctx.JSON(apiErr)
+			} else {
+				apiErr := exceptions.ConvertToInternalError(errFindAll)
+				return ctx.JSON(apiErr)
+			}
 		} else {
 			_ = ctx.SendStatus(fiber.StatusOK)
 			var uuidResponse = dtos.UuidResponse{

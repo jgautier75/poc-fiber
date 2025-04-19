@@ -1,12 +1,14 @@
 package endpoints
 
 import (
+	"poc-fiber/commons"
 	"poc-fiber/dtos"
 	"poc-fiber/exceptions"
 	"poc-fiber/services"
 	"poc-fiber/validation"
 
 	"github.com/gofiber/fiber/v2"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
 
@@ -14,6 +16,9 @@ func MakeUserCreate(userService services.UserService, logger zap.Logger) func(ct
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
+
+		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-USER-CREATE")
+		defer span.End()
 
 		// Deserialize request
 		userReq := dtos.CreateUserRequest{}
@@ -31,11 +36,17 @@ func MakeUserCreate(userService services.UserService, logger zap.Logger) func(ct
 			return ctx.JSON(apiError)
 		}
 
-		cid, errCreate := userService.CreateUser(tenantUuid, orgUuid, userReq, logger)
+		cid, errCreate := userService.CreateUser(tenantUuid, orgUuid, userReq, c)
 		if errCreate != nil {
-			_ = ctx.SendStatus(fiber.StatusBadRequest)
-			apiErr := exceptions.ConvertToFunctionalError(errCreate, fiber.StatusBadRequest)
-			return ctx.JSON(apiErr)
+			var targetHttpStatus = commons.GuessHttpStatus(errCreate)
+			_ = ctx.SendStatus(targetHttpStatus)
+			if commons.IsKnownFunctionalError(errCreate) {
+				apiErr := exceptions.ConvertToFunctionalError(errCreate, targetHttpStatus)
+				return ctx.JSON(apiErr)
+			} else {
+				apiErr := exceptions.ConvertToInternalError(errCreate)
+				return ctx.JSON(apiErr)
+			}
 		}
 		uuidResponse := dtos.UuidResponse{
 			Uuid: cid.Uuid,
@@ -49,11 +60,21 @@ func MakUsersList(userService services.UserService, logger zap.Logger) func(ctx 
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
-		userListResponse, errList := userService.FindAllUsers(tenantUuid, orgUuid, logger)
+
+		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "USER-LIST-API")
+		defer span.End()
+
+		userListResponse, errList := userService.FindAllUsers(tenantUuid, orgUuid, c)
 		if errList != nil {
-			_ = ctx.SendStatus(fiber.StatusBadRequest)
-			apiErr := exceptions.ConvertToFunctionalError(errList, fiber.StatusBadRequest)
-			return ctx.JSON(apiErr)
+			var targetHttpStatus = commons.GuessHttpStatus(errList)
+			_ = ctx.SendStatus(targetHttpStatus)
+			if commons.IsKnownFunctionalError(errList) {
+				apiErr := exceptions.ConvertToFunctionalError(errList, targetHttpStatus)
+				return ctx.JSON(apiErr)
+			} else {
+				apiErr := exceptions.ConvertToInternalError(errList)
+				return ctx.JSON(apiErr)
+			}
 		}
 		ctx.SendStatus(fiber.StatusOK)
 		return ctx.JSON(userListResponse)

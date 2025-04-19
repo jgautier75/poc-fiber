@@ -1,18 +1,22 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"poc-fiber/commons"
 	"poc-fiber/converters"
 	"poc-fiber/dao"
 	"poc-fiber/dtos"
 	"poc-fiber/functions"
+	"poc-fiber/logger"
 	"poc-fiber/model"
 
 	"github.com/google/uuid"
-
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
+
+const LOGGER_NAME = "UserService"
 
 type UserService struct {
 	tenantFunctions functions.TenantFunctions
@@ -29,31 +33,26 @@ func NewUserService(tenantFunctions functions.TenantFunctions, orgsFunctions fun
 	return userService
 }
 
-func (userService UserService) CreateUser(tenantUuid string, orgUuid string, createUserReq dtos.CreateUserRequest, logger zap.Logger) (model.CompositeId, error) {
+func (userService UserService) CreateUser(tenantUuid string, orgUuid string, createUserReq dtos.CreateUserRequest, parentContext context.Context) (model.CompositeId, error) {
 	var nilComposite model.CompositeId
-	var nilTenant model.Tenant
-	var nilOrg model.Organization
+
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-USER-CREATE")
+	defer span.End()
 
 	// Ensure tenant exists
-	tenant, errFindTenant := userService.tenantFunctions.FindTenant(tenantUuid, logger)
+	tenant, errFindTenant := userService.tenantFunctions.FindTenant(tenantUuid, c)
 	if errFindTenant != nil {
 		return nilComposite, errFindTenant
 	}
-	if tenant == nilTenant {
-		return nilComposite, errors.New(commons.TenantNotFound)
-	}
 
 	// Ensure organization exists
-	org, errFindOrg := userService.orgsFunctions.FindOrganization(tenant.Id, orgUuid, logger)
+	org, errFindOrg := userService.orgsFunctions.FindOrganization(tenant.Id, orgUuid, c)
 	if errFindOrg != nil {
 		return nilComposite, errFindOrg
 	}
-	if org == nilOrg {
-		return nilComposite, errors.New(commons.OrgNotFound)
-	}
 
 	// Ensure login not already in use
-	loginExists, errLoginExists := userService.userDao.LoginExists(*createUserReq.Login)
+	loginExists, errLoginExists := userService.userDao.LoginExists(*createUserReq.Login, c)
 	if errLoginExists != nil {
 		return nilComposite, errLoginExists
 	}
@@ -62,7 +61,7 @@ func (userService UserService) CreateUser(tenantUuid string, orgUuid string, cre
 	}
 
 	// Ensure email not already in use
-	emailExists, errMailExists := userService.userDao.EmailExists(*createUserReq.Login)
+	emailExists, errMailExists := userService.userDao.EmailExists(*createUserReq.Login, c)
 	if errMailExists != nil {
 		return nilComposite, errMailExists
 	}
@@ -80,37 +79,33 @@ func (userService UserService) CreateUser(tenantUuid string, orgUuid string, cre
 		Login:          *createUserReq.Login,
 		Email:          *createUserReq.Email,
 	}
-	cid, errCreate := userService.userDao.CreateUser(user)
+	cid, errCreate := userService.userDao.CreateUser(user, c)
 	if errCreate != nil {
 		return nilComposite, errCreate
 	}
 	return cid, nil
 }
 
-func (userService UserService) FindAllUsers(tenantUuid string, orgUuid string, logger zap.Logger) (dtos.UserListResponse, error) {
-	var nilTenant model.Tenant
-	var nilOrg model.Organization
+func (userService UserService) FindAllUsers(tenantUuid string, orgUuid string, parentContext context.Context) (dtos.UserListResponse, error) {
 	var usersList = dtos.UserListResponse{}
 
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-LIST-SERVICE")
+	defer span.End()
+	logger.LogRecord(c, LOGGER_NAME, "find all organizations for tenant ["+tenantUuid+"]")
+
 	// Ensure tenant exists
-	tenant, errFindTenant := userService.tenantFunctions.FindTenant(tenantUuid, logger)
+	tenant, errFindTenant := userService.tenantFunctions.FindTenant(tenantUuid, c)
 	if errFindTenant != nil {
 		return usersList, errFindTenant
 	}
-	if tenant == nilTenant {
-		return usersList, errors.New(commons.TenantNotFound)
-	}
 
 	// Ensure organization exists
-	org, errFindOrg := userService.orgsFunctions.FindOrganization(tenant.Id, orgUuid, logger)
+	org, errFindOrg := userService.orgsFunctions.FindOrganization(tenant.Id, orgUuid, c)
 	if errFindOrg != nil {
 		return usersList, errFindOrg
 	}
-	if org == nilOrg {
-		return usersList, errors.New(commons.OrgNotFound)
-	}
 
-	users, errList := userService.userDao.FindAllByTenantAndOrganization(tenant.Id, org.Id)
+	users, errList := userService.userDao.FindAllByTenantAndOrganization(tenant.Id, org.Id, c)
 	if errList != nil {
 		return usersList, errList
 	}

@@ -1,12 +1,17 @@
 package logger
 
 import (
+	"context"
 	"os"
 	"time"
 
+	"go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/log/global"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+const OTEL_TRACER_NAME = "otel-collector"
 
 func ConfigureLogger(logCfg string, consoleOutput bool, callerAndStack bool) zap.Logger {
 	zapConfig := zap.NewProductionEncoderConfig()
@@ -33,4 +38,12 @@ func ConfigureLogger(logCfg string, consoleOutput bool, callerAndStack bool) zap
 	} else {
 		return *zap.New(core)
 	}
+}
+
+func LogRecord(c context.Context, loggerName string, message string) {
+	var logRecord log.Record
+	logRecord.SetTimestamp(time.Now())
+	logRecord.SetBody(log.StringValue(message))
+	logRecord.SetSeverity(log.SeverityInfo)
+	global.GetLoggerProvider().Logger(loggerName).Emit(c, logRecord)
 }
