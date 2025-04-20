@@ -59,9 +59,9 @@ func (sectorService *SectorService) FindSectorsByTenantAndOrganization(tenantUui
 	for inc, s := range sectors {
 		sgResponse := dtos.SectorResponse{
 			Id:       sql.NullInt64{Int64: s.Id},
-			Uuid:     &s.Uuid,
-			Code:     &s.Code,
-			Label:    &s.Label,
+			Uuid:     s.Uuid,
+			Code:     s.Code,
+			Label:    s.Label,
 			Depth:    s.Depth,
 			ParentId: s.ParentId,
 		}

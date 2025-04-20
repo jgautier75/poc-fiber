@@ -4,9 +4,9 @@ import "database/sql"
 
 type SectorResponse struct {
 	Id       sql.NullInt64    `json:"id,omitempty"`
-	Uuid     *string          `json:"uuid"`
-	Code     *string          `json:"code"`
-	Label    *string          `json:"label"`
+	Uuid     string           `json:"uuid"`
+	Code     string           `json:"code"`
+	Label    string           `json:"label"`
 	Depth    int              `json:"depth"`
 	Children []SectorResponse `json:"children,omitempty"`
 	ParentId sql.NullInt64    `json:"parent_id,omitempty"`
