@@ -32,7 +32,7 @@ sql:
     existsByCode: "select count(1) from organizations where code=$1"
   sectors:
     create: "insert into sectors (tenants_id,organizations_id,uuid,code,label,parent_id,has_parent,depth) values ($1,$2,$3,$4,$5,$6,$7,$8) returning id"
-    findByTenantOrg: "select id,tenants_id,organizations_id,uuid,code,label,parent_id,has_parent,depth from sectors where tenants_id=$1 and organizations_id=$2"
+    findByTenantOrg: "select id,tenants_id,organizations_id,uuid,code,label,parent_id,has_parent,depth from sectors where tenants_id=$1 and organizations_id=$2 order by label asc"
     findByUuid: "select id,tenants_id,organizations_id,uuid,code,label,parent_id,has_parent,depth from sectors where uuid=$1"
   users:
     create: "insert into users (tenants_id,organizations_id,uuid,last_name,first_name,login,email) values($1,$2,$3,$4,$5,$6,$7) returning id"
