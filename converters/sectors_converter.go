@@ -17,9 +17,9 @@ func fetchLightRecursively(rootSector dtos.SectorResponse, sectors []dtos.Sector
 		c = append(c, fetchLightRecursively(sector, sector.Children))
 	}
 	return dtos.SectorLightResponse{
-		Uuid:     rootSector.Uuid,
-		Code:     rootSector.Code,
-		Label:    rootSector.Label,
+		Uuid:     &rootSector.Uuid,
+		Code:     &rootSector.Code,
+		Label:    &rootSector.Label,
 		Depth:    rootSector.Depth,
 		Children: c,
 	}
