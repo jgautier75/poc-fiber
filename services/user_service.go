@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
-	"go.uber.org/zap"
 )
 
 const LOGGER_NAME = "UserService"
@@ -24,7 +23,7 @@ type UserService struct {
 	userDao         dao.UserDao
 }
 
-func NewUserService(tenantFunctions functions.TenantFunctions, orgsFunctions functions.OrganizationsFunctions, userDao dao.UserDao, l zap.Logger) UserService {
+func NewUserService(tenantFunctions functions.TenantFunctions, orgsFunctions functions.OrganizationsFunctions, userDao dao.UserDao) UserService {
 	userService := UserService{
 		tenantFunctions: tenantFunctions,
 		orgsFunctions:   orgsFunctions,

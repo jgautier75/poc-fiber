@@ -19,7 +19,7 @@ func MakeOrgFindAll(orgSvc services.OrganizationService, logger zap.Logger) func
 		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-ORG-LIST")
 		defer span.End()
 		tenantUuid := ctx.Params("tenantUuid")
-		orgsList, errFindAll := orgSvc.FindAllOrganizations(tenantUuid, logger, c)
+		orgsList, errFindAll := orgSvc.FindAllOrganizations(tenantUuid, c)
 		if errFindAll != nil {
 			span.RecordError(errFindAll)
 			var targetHttpStatus = commons.GuessHttpStatus(errFindAll)

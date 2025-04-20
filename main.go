@@ -56,7 +56,7 @@ func main() {
 
 	// Perform SQL Migration
 	pgUrl := viper.GetString("app.pgUrl")
-	migrate.PerformMigration(logger, pgUrl)
+	migrate.PerformMigration(logger, pgUrl, "migrate/files")
 
 	//Setup rdbms connection pool
 	dbPool, poolErr := infrastructure.SetupCnxPool(pgUrl, viper.GetInt32("app.pgPoolMin"), viper.GetInt32("app.pgPoolMax"), logger)
@@ -86,7 +86,7 @@ func main() {
 	}()
 	provider = <-asyncOidcIssuer
 
-	// Fetch OIDC well-known uri asynchronously
+	// Custom fetch (go-oidc does not fetch revoke token url)
 	var oauthConfig *authentik.OauthConfiguration
 	asyncOAuthConfig := make(chan *authentik.OauthConfiguration)
 	go func() {
@@ -161,9 +161,9 @@ func main() {
 	var tenantFunctions = functions.NewTenantFunctions(tenantDao, logger)
 	var orgFunctions = functions.NewOrganizationsFunctions(orgDao, logger)
 
-	var orgService = services.NewOrganizationService(tenantDao, orgDao, sectorDao, logger)
-	var sectorService = services.NewSectorService(tenantFunctions, orgFunctions, sectorDao, logger)
-	var userService = services.NewUserService(tenantFunctions, orgFunctions, userDao, logger)
+	var orgService = services.NewOrganizationService(tenantDao, orgDao, sectorDao)
+	var sectorService = services.NewSectorService(tenantFunctions, orgFunctions, sectorDao)
+	var userService = services.NewUserService(tenantFunctions, orgFunctions, userDao)
 
 	apiBaseUri := viper.GetString("app.server.api")
 	var fullApiUri = "/" + appContext + "/" + apiBaseUri

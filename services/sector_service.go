@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
-	"go.uber.org/zap"
 )
 
 type SectorService struct {
@@ -23,7 +22,7 @@ type SectorService struct {
 	sectorDao       dao.SectorDao
 }
 
-func NewSectorService(tenantFunctions functions.TenantFunctions, orgsFunctions functions.OrganizationsFunctions, sectorDao dao.SectorDao, l zap.Logger) SectorService {
+func NewSectorService(tenantFunctions functions.TenantFunctions, orgsFunctions functions.OrganizationsFunctions, sectorDao dao.SectorDao) SectorService {
 	sectorService := SectorService{
 		tenantFunctions: tenantFunctions,
 		orgsFunctions:   orgsFunctions,

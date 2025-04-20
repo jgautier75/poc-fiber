@@ -40,6 +40,18 @@ func ConfigureLogger(logCfg string, consoleOutput bool, callerAndStack bool) zap
 	}
 }
 
+func ConfigureConsoleLogger() *zap.Logger {
+	zapConfig := zap.NewProductionEncoderConfig()
+	zapConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+		enc.AppendString(t.UTC().Format("2006-01-02T15:04:05Z0700"))
+	}
+	consoleEncoder := zapcore.NewConsoleEncoder(zapConfig)
+	defaultLogLevel := zapcore.InfoLevel
+	core := zapcore.NewTee(
+		zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), defaultLogLevel))
+	return zap.New(core)
+}
+
 func LogRecord(c context.Context, loggerName string, message string) {
 	var logRecord log.Record
 	logRecord.SetTimestamp(time.Now())
