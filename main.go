@@ -188,15 +188,24 @@ func main() {
 
 	logger.Info("Endpoints -> Setup")
 	app.Get("/"+appContext+"/home", endpoints.MakeIndex(oauth2Config, store))
+	app.Get(versionsApi, endpoints.MakeVersions(viper.GetString("app.version")))
+	app.Delete(fullApiUri+"/sessions", endpoints.DeleteSession(clientId, clientSecret, store, oauthConfig, logger))
+
+	// OIDC
+	app.Get(oauthCallBackUri, endpoints.MakeOAuthCallback(oauth2Config, store, tokenVerifier))
+
+	// Organizations
 	app.Get(apiOrgsPrefix, endpoints.MakeOrgFindAll(orgService, logger))
 	app.Post(apiOrgsPrefix, endpoints.MakeOrgCreate(orgService, logger))
-	app.Get(oauthCallBackUri, endpoints.MakeOAuthCallback(oauth2Config, store, tokenVerifier))
-	app.Get(versionsApi, endpoints.MakeVersions(viper.GetString("app.version")))
+
+	// Sectors
 	app.Get(apiSectorsPrefix, endpoints.MakeSectorsFindAll(sectorService, logger))
 	app.Post(apiSectorsPrefix, endpoints.MakeSectorCreate(sectorService, logger))
-	app.Delete(fullApiUri+"/sessions", endpoints.DeleteSession(clientId, clientSecret, store, oauthConfig, logger))
-	app.Get(apiUsersPrefix, endpoints.MakUsersList(userService, logger))
+
+	// Users
+	app.Get(apiUsersPrefix, endpoints.MakeUsersList(userService, logger))
 	app.Post(apiUsersPrefix, endpoints.MakeUserCreate(userService, logger))
+	app.Get(apiUsersPrefix+"/filter", endpoints.MakeUsersFilter(userService))
 
 	go func() {
 		logger.Info("Application -> Listen TLS")

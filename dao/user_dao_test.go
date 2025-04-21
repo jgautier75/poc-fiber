@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"fmt"
+	"poc-fiber/antlr/parser"
 	"poc-fiber/logger"
 	"poc-fiber/migrate"
 	"poc-fiber/model"
@@ -99,4 +100,13 @@ func TestUserDao(t *testing.T) {
 	users, errList := userDao.FindAllByTenantAndOrganization(DEFAULT_TENANT, orgCid.Id, ctx)
 	assert.Nil(t, errList, "no error listing users")
 	assert.Equal(t, 1, len(users), "1 user in result")
+}
+
+func TestBuildExpressions(t *testing.T) {
+	expressions, _, _ := parser.FromInputString("last_name eq 'HOPPER'")
+	fullQuery, errBuild, vals := BuildQueryFromExpressions("select * from users where tenant_id=$1 and org_id=$2", expressions, 665, 666)
+	fmt.Println("full query: " + fullQuery)
+	assert.Nil(t, errBuild, "error building query")
+	assert.Equal(t, 3, len(vals), "3 parameters")
+	assert.Equal(t, "select * from users where tenant_id=$1 and org_id=$2 and last_name=$3", fullQuery, "query match")
 }

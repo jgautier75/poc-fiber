@@ -18,6 +18,7 @@ const (
 	UserLoginAlreadyInUse  = "func_user_login_already_in_use"
 	UserEmailAlreadyInUse  = "func_user_email_already_in_use"
 	OAuthStateMismatch     = "func_oauth_state_mismatch"
+	SearchFilter           = "func_search_filter"
 )
 
 type ApiErrorType string

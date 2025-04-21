@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"poc-fiber/antlr/parser"
 	"poc-fiber/commons"
 	"poc-fiber/converters"
 	"poc-fiber/dao"
@@ -90,7 +91,7 @@ func (userService UserService) FindAllUsers(tenantUuid string, orgUuid string, p
 
 	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-LIST-SERVICE")
 	defer span.End()
-	logger.LogRecord(c, LOGGER_NAME, "find all organizations for tenant ["+tenantUuid+"]")
+	logger.LogRecord(c, LOGGER_NAME, "find all users for tenant ["+tenantUuid+"]")
 
 	// Ensure tenant exists
 	tenant, errFindTenant := userService.tenantFunctions.FindTenant(tenantUuid, c)
@@ -107,6 +108,39 @@ func (userService UserService) FindAllUsers(tenantUuid string, orgUuid string, p
 	users, errList := userService.userDao.FindAllByTenantAndOrganization(tenant.Id, org.Id, c)
 	if errList != nil {
 		return usersList, errList
+	}
+
+	userArray := make([]dtos.UserResponse, len(users))
+	for inc, usr := range users {
+		userArray[inc] = converters.ConvertUserToResponse(usr)
+	}
+	usersList.Users = userArray
+	return usersList, nil
+}
+
+func (userService UserService) FilterUsers(tenantUuid string, orgUuid string, expressions []parser.SearchExpression, parentContext context.Context) (dtos.UserListResponse, error) {
+	var usersList = dtos.UserListResponse{}
+
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-FILTER-SERVICE")
+	defer span.End()
+	logger.LogRecord(c, LOGGER_NAME, "find all organizations for tenant ["+tenantUuid+"]")
+
+	// Ensure tenant exists
+	tenant, errFindTenant := userService.tenantFunctions.FindTenant(tenantUuid, c)
+	if errFindTenant != nil {
+		return usersList, errFindTenant
+	}
+
+	// Ensure organization exists
+	org, errFindOrg := userService.orgsFunctions.FindOrganization(tenant.Id, orgUuid, c)
+	if errFindOrg != nil {
+		return usersList, errFindOrg
+	}
+
+	// Filter users
+	users, errUsers := userService.userDao.FilterUsers(tenant.Id, org.Id, expressions, c)
+	if errUsers != nil {
+		return dtos.UserListResponse{}, errUsers
 	}
 
 	userArray := make([]dtos.UserResponse, len(users))

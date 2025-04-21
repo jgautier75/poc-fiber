@@ -6,7 +6,7 @@ import (
 )
 
 func TestFilterSearch(t *testing.T) {
-	expressions, errorNodes := FromInputString("lname eq 'hopper'")
+	expressions, errorNodes, _ := FromInputString("lname eq 'hopper'")
 	for _, errnode := range errorNodes {
 		fmt.Printf("error node [%s]", errnode.GetText())
 	}
