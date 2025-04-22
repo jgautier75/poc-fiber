@@ -11,10 +11,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"go.opentelemetry.io/otel"
-	"go.uber.org/zap"
 )
 
-func MakeUserCreate(userService services.UserService, logger zap.Logger) func(ctx *fiber.Ctx) error {
+func MakeUserCreate(userService services.UserService) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
@@ -58,7 +57,7 @@ func MakeUserCreate(userService services.UserService, logger zap.Logger) func(ct
 	}
 }
 
-func MakeUsersList(userService services.UserService, logger zap.Logger) func(ctx *fiber.Ctx) error {
+func MakeUsersList(userService services.UserService) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")

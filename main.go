@@ -195,16 +195,16 @@ func main() {
 	app.Get(oauthCallBackUri, endpoints.MakeOAuthCallback(oauth2Config, store, tokenVerifier))
 
 	// Organizations
-	app.Get(apiOrgsPrefix, endpoints.MakeOrgFindAll(orgService, logger))
-	app.Post(apiOrgsPrefix, endpoints.MakeOrgCreate(orgService, logger))
+	app.Get(apiOrgsPrefix, endpoints.MakeOrgFindAll(orgService))
+	app.Post(apiOrgsPrefix, endpoints.MakeOrgCreate(orgService))
 
 	// Sectors
-	app.Get(apiSectorsPrefix, endpoints.MakeSectorsFindAll(sectorService, logger))
-	app.Post(apiSectorsPrefix, endpoints.MakeSectorCreate(sectorService, logger))
+	app.Get(apiSectorsPrefix, endpoints.MakeSectorsFindAll(sectorService))
+	app.Post(apiSectorsPrefix, endpoints.MakeSectorCreate(sectorService))
 
 	// Users
-	app.Get(apiUsersPrefix, endpoints.MakeUsersList(userService, logger))
-	app.Post(apiUsersPrefix, endpoints.MakeUserCreate(userService, logger))
+	app.Get(apiUsersPrefix, endpoints.MakeUsersList(userService))
+	app.Post(apiUsersPrefix, endpoints.MakeUserCreate(userService))
 	app.Get(apiUsersPrefix+"/filter", endpoints.MakeUsersFilter(userService))
 
 	go func() {

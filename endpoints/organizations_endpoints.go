@@ -9,12 +9,11 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"go.opentelemetry.io/otel"
-	"go.uber.org/zap"
 )
 
 const OTEL_TRACER_NAME = "otel-collector"
 
-func MakeOrgFindAll(orgSvc services.OrganizationService, logger zap.Logger) func(ctx *fiber.Ctx) error {
+func MakeOrgFindAll(orgSvc services.OrganizationService) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-ORG-LIST")
 		defer span.End()
@@ -38,7 +37,7 @@ func MakeOrgFindAll(orgSvc services.OrganizationService, logger zap.Logger) func
 	}
 }
 
-func MakeOrgCreate(orgSvc services.OrganizationService, logger zap.Logger) func(ctx *fiber.Ctx) error {
+func MakeOrgCreate(orgSvc services.OrganizationService) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 
 		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-ORG-CREATE")

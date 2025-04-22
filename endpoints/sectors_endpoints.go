@@ -10,10 +10,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"go.opentelemetry.io/otel"
-	"go.uber.org/zap"
 )
 
-func MakeSectorCreate(sectorsSvc services.SectorService, logger zap.Logger) func(ctx *fiber.Ctx) error {
+func MakeSectorCreate(sectorsSvc services.SectorService) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
@@ -58,7 +57,7 @@ func MakeSectorCreate(sectorsSvc services.SectorService, logger zap.Logger) func
 	}
 }
 
-func MakeSectorsFindAll(sectorsSvc services.SectorService, logger zap.Logger) func(ctx *fiber.Ctx) error {
+func MakeSectorsFindAll(sectorsSvc services.SectorService) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
