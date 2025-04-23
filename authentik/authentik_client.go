@@ -40,12 +40,12 @@ func FetchOAuthConfiguration(rootUrl string, logger zap.Logger) *OauthConfigurat
 	client.SetCloseConnection(true)
 	res, errGet := client.R().SetHeader("Cache-Control", "no-cache").Get(wellKnown)
 	if errGet != nil {
-		logger.Error("error retrieving welknown configuration", zap.Error(errGet))
+		logger.Error("error retrieving .wellknown openid-configuration", zap.Error(errGet))
 	}
 	var oauthConfig *OauthConfiguration
 	errUnmarshal := json.Unmarshal(res.Body(), &oauthConfig)
 	if errUnmarshal != nil {
-		logger.Error("error unmarshalling welknown configuration", zap.Error(errUnmarshal))
+		logger.Error("error unmarshalling .wellknown openid-configuration", zap.Error(errUnmarshal))
 	}
 	return oauthConfig
 }

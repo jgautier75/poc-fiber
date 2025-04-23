@@ -100,6 +100,33 @@ func (udao UserDao) EmailExists(email string, parentContext context.Context) (bo
 	return exists, nil
 }
 
+func (udao UserDao) ExistsByUuid(tenantId int64, orgId int64, userUuid string, parentContext context.Context) (bool, error) {
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-USER-UUID_EXISTS")
+	defer span.End()
+
+	selStmt := viper.GetStringMapString(CONFIG_USERS)["existsbyuuid"]
+	rows, e := udao.DbPool.Query(context.Background(), selStmt, userUuid)
+	if e != nil {
+		return false, e
+	}
+	defer rows.Close()
+	cnt := 0
+	for rows.Next() {
+		err := rows.Scan(&cnt)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	var exists = false
+	if cnt > 0 {
+		exists = true
+	}
+
+	logger.LogRecord(c, LOGGER_NAME, "user ["+userUuid+"] exists: "+strconv.FormatBool(exists))
+	return exists, nil
+}
+
 func (udao UserDao) FindAllByTenantAndOrganization(tenantId int64, orgId int64, parentContext context.Context) ([]model.User, error) {
 	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-LIST-DAO")
 	defer span.End()
@@ -120,29 +147,58 @@ func (udao UserDao) FindAllByTenantAndOrganization(tenantId int64, orgId int64, 
 	return users, nil
 }
 
-func (udao UserDao) FilterUsers(tenantId int64, orgId int64, expressions []parser.SearchExpression, parentContext context.Context) ([]model.User, error) {
+func (udao UserDao) FilterUsers(tenantId int64, orgId int64, expressions []parser.SearchExpression, pagination model.Pagination, parentContext context.Context) (int, []model.User, error) {
 	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-FILTER-DAO")
 	defer span.End()
 
-	selStmt := viper.GetStringMapString(CONFIG_USERS)["findallbytenantandorg"]
-	fullQuery, errBuild, vals := BuildQueryFromExpressions(selStmt, expressions, tenantId, orgId)
+	// Count number of results based on search expressions
+	countStmt := viper.GetStringMapString(CONFIG_USERS)["countbytenantandorg"]
+	fullQuery, errBuild, vals := BuildQueryFromExpressions(countStmt, expressions, tenantId, orgId)
 	if errBuild != nil {
-		return nil, errBuild
+		return 0, nil, errBuild
 	}
-
 	rows, e := udao.DbPool.Query(context.Background(), fullQuery, vals...)
 	if e != nil {
-		return nil, e
+		return 0, nil, e
 	}
 	defer rows.Close()
+	cnt := 0
+	for rows.Next() {
+		err := rows.Scan(&cnt)
+		if err != nil {
+			return 0, nil, err
+		}
+	}
 
-	users, errCollect := pgx.CollectRows(rows, pgx.RowToStructByName[model.User])
+	// Search based on expressions
+	selStmt := viper.GetStringMapString(CONFIG_USERS)["findallbytenantandorg"]
+	fullQuery, errBuild, svalues := BuildQueryFromExpressions(selStmt, expressions, tenantId, orgId)
+	if errBuild != nil {
+		return 0, nil, errBuild
+	}
+	qry := computePagination(fullQuery, pagination)
+	searchRows, e := udao.DbPool.Query(context.Background(), qry, svalues...)
+	if e != nil {
+		return 0, nil, e
+	}
+	defer searchRows.Close()
+	users, errCollect := pgx.CollectRows(searchRows, pgx.RowToStructByName[model.User])
 	if errCollect != nil {
-		return nil, errCollect
+		return 0, nil, errCollect
 	}
 
 	logger.LogRecord(c, LOGGER_NAME, "nb of results ["+strconv.Itoa(len(users))+"]")
-	return users, nil
+	return cnt, users, nil
+}
+
+func (udao UserDao) DeleteUser(userId int64) error {
+	selStmt := viper.GetStringMapString(CONFIG_USERS)["delete"]
+	rows, errQuery := udao.DbPool.Query(context.Background(), selStmt, userId)
+	if errQuery != nil {
+		return errQuery
+	}
+	defer rows.Close()
+	return errQuery
 }
 
 func BuildQueryFromExpressions(baseQuery string, expressions []parser.SearchExpression, tenantId int64, orgId int64) (query string, err error, params []interface{}) {
@@ -208,4 +264,29 @@ func convertComparisonExpressionToSql(exprOperator string) (string, error) {
 		return " like ", nil
 	}
 	return "", errors.New("invalid comparison [" + exprOperator + "]")
+}
+
+func computePagination(qry string, pagination model.Pagination) string {
+	var builder strings.Builder
+	builder.WriteString(qry)
+
+	if len(pagination.Sorting) > 0 {
+		builder.WriteString(" order by")
+		for _, s := range pagination.Sorting {
+			builder.WriteString(" ")
+			builder.WriteString(s.Column)
+			builder.WriteString(" ")
+			builder.WriteString(s.Order)
+		}
+	}
+
+	if pagination.Page > 1 {
+		startPg := (pagination.Page - 1) * pagination.RowsPerPage
+		builder.WriteString(" offset ")
+		builder.WriteString(strconv.Itoa(startPg))
+	}
+
+	builder.WriteString(" limit ")
+	builder.WriteString(strconv.Itoa(pagination.RowsPerPage))
+	return builder.String()
 }

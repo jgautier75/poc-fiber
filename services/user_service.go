@@ -91,7 +91,7 @@ func (userService UserService) FindAllUsers(tenantUuid string, orgUuid string, p
 
 	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-LIST-SERVICE")
 	defer span.End()
-	logger.LogRecord(c, LOGGER_NAME, "find all users for tenant ["+tenantUuid+"]")
+	logger.LogRecord(c, LOGGER_NAME, "find all users for tenant ["+tenantUuid+"] and org ["+orgUuid+"]")
 
 	// Ensure tenant exists
 	tenant, errFindTenant := userService.tenantFunctions.FindTenant(tenantUuid, c)
@@ -118,12 +118,12 @@ func (userService UserService) FindAllUsers(tenantUuid string, orgUuid string, p
 	return usersList, nil
 }
 
-func (userService UserService) FilterUsers(tenantUuid string, orgUuid string, expressions []parser.SearchExpression, parentContext context.Context) (dtos.UserListResponse, error) {
+func (userService UserService) FilterUsers(tenantUuid string, orgUuid string, expressions []parser.SearchExpression, pagination model.Pagination, parentContext context.Context) (dtos.UserListResponse, error) {
 	var usersList = dtos.UserListResponse{}
 
 	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-FILTER-SERVICE")
 	defer span.End()
-	logger.LogRecord(c, LOGGER_NAME, "find all organizations for tenant ["+tenantUuid+"]")
+	logger.LogRecord(c, LOGGER_NAME, "filter users for tenant ["+tenantUuid+"] and org ["+orgUuid+"]")
 
 	// Ensure tenant exists
 	tenant, errFindTenant := userService.tenantFunctions.FindTenant(tenantUuid, c)
@@ -138,10 +138,12 @@ func (userService UserService) FilterUsers(tenantUuid string, orgUuid string, ex
 	}
 
 	// Filter users
-	users, errUsers := userService.userDao.FilterUsers(tenant.Id, org.Id, expressions, c)
+	cnt, users, errUsers := userService.userDao.FilterUsers(tenant.Id, org.Id, expressions, pagination, c)
 	if errUsers != nil {
 		return dtos.UserListResponse{}, errUsers
 	}
+	usersList.Total = cnt
+	usersList.Pages = (cnt / pagination.RowsPerPage) + 1
 
 	userArray := make([]dtos.UserResponse, len(users))
 	for inc, usr := range users {
@@ -149,4 +151,29 @@ func (userService UserService) FilterUsers(tenantUuid string, orgUuid string, ex
 	}
 	usersList.Users = userArray
 	return usersList, nil
+}
+
+func (userService UserService) DeleteUser(tenantUuid string, orgUuid string, userUuid string, parentContext context.Context) (bool, error) {
+
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-DELETE-SERVICE")
+	defer span.End()
+
+	// Ensure tenant exists
+	tenant, errFindTenant := userService.tenantFunctions.FindTenant(tenantUuid, c)
+	if errFindTenant != nil {
+		return false, errFindTenant
+	}
+
+	// Ensure organization exists
+	org, errFindOrg := userService.orgsFunctions.FindOrganization(tenant.Id, orgUuid, c)
+	if errFindOrg != nil {
+		return false, errFindOrg
+	}
+
+	userExists, err := userService.userDao.ExistsByUuid(tenant.Id, org.Id, userUuid, c)
+	if err != nil {
+		return false, err
+	}
+
+	return userExists, nil
 }

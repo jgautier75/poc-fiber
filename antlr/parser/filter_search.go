@@ -7,6 +7,13 @@ import (
 )
 
 func FromInputString(inStr string) (expressions []SearchExpression, errorNodes []antlr.ErrorNode, listenerErrors CustomErrorListener) {
+
+	if inStr == "" {
+		var nilListener CustomErrorListener
+		searchExpressions := make([]SearchExpression, 0)
+		return searchExpressions, nil, nilListener
+	}
+
 	is := antlr.NewInputStream(inStr)
 	lexer := NewFilterLexer(is)
 	lexer.RemoveErrorListeners()

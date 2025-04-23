@@ -5,6 +5,7 @@ import (
 	"poc-fiber/commons"
 	"poc-fiber/dtos"
 	"poc-fiber/exceptions"
+	"poc-fiber/model"
 	"poc-fiber/services"
 	"poc-fiber/validation"
 	"strings"
@@ -82,13 +83,54 @@ func MakeUsersList(userService services.UserService) func(ctx *fiber.Ctx) error 
 	}
 }
 
+func MakeUsersDelete(userService services.UserService) func(ctx *fiber.Ctx) error {
+	return func(ctx *fiber.Ctx) error {
+		tenantUuid := ctx.Params("tenantUuid")
+		orgUuid := ctx.Params("organizationUuid")
+		userUuid := ctx.Params("userUuid")
+
+		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "USER-DELETE-API")
+		defer span.End()
+
+		userExists, errExists := userService.DeleteUser(tenantUuid, orgUuid, userUuid, c)
+		if errExists != nil {
+			var targetHttpStatus = commons.GuessHttpStatus(errExists)
+			_ = ctx.SendStatus(targetHttpStatus)
+			if commons.IsKnownFunctionalError(errExists) {
+				apiErr := exceptions.ConvertToFunctionalError(errExists, targetHttpStatus)
+				return ctx.JSON(apiErr)
+			} else {
+				apiErr := exceptions.ConvertToInternalError(errExists)
+				return ctx.JSON(apiErr)
+			}
+		}
+		if !userExists {
+			apiErr := commons.ApiError{
+				Code:         fiber.StatusNotFound,
+				Kind:         string(commons.ErrorTypeFunctional),
+				DebugMessage: commons.UserNotFound,
+			}
+			ctx.SendStatus(fiber.StatusNotFound)
+			return ctx.JSON(apiErr)
+		}
+
+		ctx.SendStatus(fiber.StatusNoContent)
+		return nil
+	}
+}
+
 func MakeUsersFilter(userService services.UserService) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
+
 		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "USER-FILTER-API")
 		defer span.End()
+
 		searchFilter := ctx.Query("filter")
+		page := ctx.Query("page")
+		rowsPerPage := ctx.Query("rowsPerPage")
+		sorting := ctx.Query("sort")
 
 		searchExpressions, errorNodes, errListener := parser.FromInputString(searchFilter)
 		if errorNodes != nil {
@@ -107,7 +149,13 @@ func MakeUsersFilter(userService services.UserService) func(ctx *fiber.Ctx) erro
 			return ctx.JSON(apiErr)
 		}
 
-		userListResponse, errList := userService.FilterUsers(tenantUuid, orgUuid, searchExpressions, c)
+		pagination, errPagination := model.FromParameters(rowsPerPage, page, sorting)
+		if errPagination != nil {
+			apiErr := exceptions.ConvertToFunctionalError(errPagination, fiber.StatusBadRequest)
+			return ctx.JSON(apiErr)
+		}
+
+		userListResponse, errList := userService.FilterUsers(tenantUuid, orgUuid, searchExpressions, pagination, c)
 		if errList != nil {
 			var targetHttpStatus = commons.GuessHttpStatus(errList)
 			_ = ctx.SendStatus(targetHttpStatus)

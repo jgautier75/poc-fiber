@@ -16,5 +16,7 @@ type UserResponse struct {
 }
 
 type UserListResponse struct {
+	Total int
+	Pages int
 	Users []UserResponse `json:"users"`
 }
