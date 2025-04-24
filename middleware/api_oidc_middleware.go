@@ -30,6 +30,7 @@ func NewApiOidcHandler(apiBaseUri string, renewRedirectUri string, provider *oid
 				}
 			} else if sid != "" {
 				httpSession, errSession := store.Get(c)
+				defer httpSession.Save()
 				if errSession != nil {
 					c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errors.New("no session found"), fiber.StatusUnauthorized))
 				}
