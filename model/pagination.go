@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+const (
+	DefaultRowsPerPage = 10
+	DefaultPageNumber  = 1
+)
+
 type OrderBy struct {
 	Column string
 	Order  string
@@ -18,8 +23,8 @@ type Pagination struct {
 
 func FromParameters(rowsPerPage string, page string, sorting string) (p Pagination, e error) {
 	var nilPagination Pagination
-	var rpp = 10
-	var pg = 1
+	var rpp = DefaultRowsPerPage
+	var pg = DefaultPageNumber
 	if rowsPerPage != "" {
 		rpp, e = strconv.Atoi(rowsPerPage)
 		if e != nil {
