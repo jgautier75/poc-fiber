@@ -25,17 +25,13 @@ func VerifyAndStoreToken(ctx *fiber.Ctx, token oauth2.Token, httpSession *sessio
 	if errClaims != nil {
 		return claims, errClaims
 	}
-	errorStorage := StoreToken(httpSession, ctx, token, claims)
-	if errorStorage != nil {
-		return claims, errorStorage
-	}
-	return claims, errorStorage
+	StoreToken(httpSession, ctx, token, claims)
+	return claims, nil
 }
 
-func StoreToken(httpSession *session.Session, ctx *fiber.Ctx, token oauth2.Token, claims model.Claims) error {
+func StoreToken(httpSession *session.Session, ctx *fiber.Ctx, token oauth2.Token, claims model.Claims) {
 	httpSession.Set(commons.SESSION_ATTR_TOKEN, token)
 	httpSession.Set(commons.SESSION_ATTR_USERNAME, claims.PreferedUserName)
-	return nil
 }
 
 func GenerateState(n int) (string, error) {

@@ -2,10 +2,8 @@ package endpoints
 
 import (
 	"context"
-
 	"errors"
 	"fmt"
-
 	"net/url"
 	"poc-fiber/authentik"
 	"poc-fiber/commons"
@@ -26,26 +24,36 @@ import (
 )
 
 const HEADER_STATE = "state"
+const PKCE_VERIFIER = "pkceAuthCodeOption"
 
 var validate = validator.New()
 
 func MakeIndex(oauthCfg oauth2.Config, store *session.Store) func(ctx *fiber.Ctx) error {
-	state, errState := security.GenerateState(28)
-	if errState != nil {
-		panic(fmt.Errorf("error reading config : [%w]", errState))
-	}
-	dState, _ := url.QueryUnescape(state)
-	url := oauthCfg.AuthCodeURL(dState)
 	return func(c *fiber.Ctx) error {
+
 		httpSession, errSession := store.Get(c)
 		if errSession != nil {
-			panic(fmt.Errorf("error instantiating session : [%w]", errState))
+			panic(fmt.Errorf("error instantiating session : [%w]", errSession))
 		}
+
+		state, errState := security.GenerateState(28)
+		if errState != nil {
+			panic(fmt.Errorf("error reading config : [%w]", errState))
+		}
+		dState, _ := url.QueryUnescape(state)
+
+		pkceVerifier := oauth2.GenerateVerifier()
+		pkceAuthCodeOption := oauth2.S256ChallengeOption(pkceVerifier)
+
+		url := oauthCfg.AuthCodeURL(dState, pkceAuthCodeOption)
+
 		httpSession.Set(HEADER_STATE, state)
-		errSessionSave := httpSession.Save()
-		if errSessionSave != nil {
-			panic(fmt.Errorf("error session save [%s]", errSessionSave))
+		httpSession.Set(PKCE_VERIFIER, pkceVerifier)
+		errSave := httpSession.Save()
+		if errSave != nil {
+			panic(fmt.Errorf("error saving session : [%w]", errSave))
 		}
+
 		return c.Render("index", fiber.Map{
 			"AuthUrl": url,
 		})
@@ -77,7 +85,9 @@ func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *o
 			panic(fmt.Errorf("error instantiating session : [%w]", errSession))
 		}
 		defer httpSession.Save()
-		token, err := oauthCfg.Exchange(context.Background(), code)
+
+		pkceVerififer := httpSession.Get(PKCE_VERIFIER)
+		token, err := oauthCfg.Exchange(context.Background(), code, oauth2.VerifierOption(pkceVerififer.(string)))
 		if err != nil {
 			return ctx.Render("error", fiber.Map{
 				"ErrorMsg": fmt.Errorf("failed to exchange token : [%w]", err),
