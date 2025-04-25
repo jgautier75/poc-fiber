@@ -40,7 +40,7 @@ func NewApiOidcHandler(apiBaseUri string, renewRedirectUri string, provider *oid
 				}
 				tokenData, errFetch := fetchNewToken(provider, refreshToken, renewRedirectUri, clientId, clientSecret)
 				if errFetch != nil {
-					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errFetch, fiber.StatusUnauthorized))
+					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToInternalError(errFetch))
 				}
 				_, errStore := security.VerifyAndStoreToken(c, tokenData, httpSession, verifier)
 				if errStore != nil {

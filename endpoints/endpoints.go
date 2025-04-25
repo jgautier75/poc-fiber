@@ -3,7 +3,6 @@ package endpoints
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/url"
 	"poc-fiber/authentik"
 	"poc-fiber/commons"
@@ -33,12 +32,16 @@ func MakeIndex(oauthCfg oauth2.Config, store *session.Store) func(ctx *fiber.Ctx
 
 		httpSession, errSession := store.Get(c)
 		if errSession != nil {
-			panic(fmt.Errorf("error instantiating session : [%w]", errSession))
+			apiError := exceptions.ConvertToInternalError(errSession)
+			c.SendStatus(fiber.StatusUnauthorized)
+			return c.JSON(apiError)
 		}
 
 		state, errState := security.GenerateState(28)
 		if errState != nil {
-			panic(fmt.Errorf("error reading config : [%w]", errState))
+			apiError := exceptions.ConvertToInternalError(errSession)
+			c.SendStatus(fiber.StatusUnauthorized)
+			return c.JSON(apiError)
 		}
 		dState, _ := url.QueryUnescape(state)
 
@@ -51,7 +54,9 @@ func MakeIndex(oauthCfg oauth2.Config, store *session.Store) func(ctx *fiber.Ctx
 		httpSession.Set(PKCE_VERIFIER, pkceVerifier)
 		errSave := httpSession.Save()
 		if errSave != nil {
-			panic(fmt.Errorf("error saving session : [%w]", errSave))
+			apiError := exceptions.ConvertToInternalError(errSave)
+			c.SendStatus(fiber.StatusUnauthorized)
+			return c.JSON(apiError)
 		}
 
 		return c.Render("index", fiber.Map{
@@ -75,27 +80,35 @@ func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *o
 		reqState := ctx.Query(HEADER_STATE)
 		decState, errDecode := url.QueryUnescape(reqState)
 		if errDecode != nil {
-			panic(fmt.Errorf("error decoding state: [%w]", errDecode))
+			apiError := exceptions.ConvertToInternalError(errDecode)
+			ctx.SendStatus(fiber.StatusInternalServerError)
+			return ctx.JSON(apiError)
 		}
 		if decState != reqState {
-			panic("state does not match")
+			apiError := errors.New("state does not match")
+			ctx.SendStatus(fiber.StatusUnauthorized)
+			return ctx.JSON(apiError)
 		}
 		httpSession, errSession := store.Get(ctx)
 		if errSession != nil {
-			panic(fmt.Errorf("error instantiating session : [%w]", errSession))
+			apiError := exceptions.ConvertToInternalError(errSession)
+			ctx.SendStatus(fiber.StatusUnauthorized)
+			return ctx.JSON(apiError)
 		}
 		defer httpSession.Save()
 
 		pkceVerififer := httpSession.Get(PKCE_VERIFIER)
 		token, err := oauthCfg.Exchange(context.Background(), code, oauth2.VerifierOption(pkceVerififer.(string)))
 		if err != nil {
-			return ctx.Render("error", fiber.Map{
-				"ErrorMsg": fmt.Errorf("failed to exchange token : [%w]", err),
-			})
+			apiError := exceptions.ConvertToInternalError(err)
+			ctx.SendStatus(fiber.StatusUnauthorized)
+			return ctx.JSON(apiError)
 		}
 		claims, errorVerify := security.VerifyAndStoreToken(ctx, *token, httpSession, verifier)
 		if errorVerify != nil {
-			panic(fmt.Errorf("token verification error : [%w]", errorVerify))
+			apiError := exceptions.ConvertToInternalError(errorVerify)
+			ctx.SendStatus(fiber.StatusUnauthorized)
+			return ctx.JSON(apiError)
 		}
 
 		sid := httpSession.ID()
@@ -130,6 +143,11 @@ func DeleteSession(clientId string, clientSecret string, store *session.Store, o
 			}).
 				SetHeader("Cache-Control", "no-cache").
 				Post(oauthCfg.RevocationEndpoint)
+			if errPostAccess != nil {
+				apiError := exceptions.ConvertToInternalError(errPostAccess)
+				return ctx.Status(fiber.StatusInternalServerError).JSON(apiError)
+			}
+
 			logDeleteToken(resAccess, errPostAccess, logger)
 
 			// Delete refresh token
