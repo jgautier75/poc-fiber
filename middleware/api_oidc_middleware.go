@@ -16,6 +16,12 @@ import (
 	"golang.org/x/oauth2"
 )
 
+/*
+- Instantiate an OIDC Handler.
+- Protect only /api/xx URIs
+- First check if request contains an Authorization header and if it contains a valid bearer
+- Otherwise check if any sessionId and if so, try to get a new token using refresh token
+*/
 func NewApiOidcHandler(apiBaseUri string, renewRedirectUri string, provider *oidc.Provider,
 	verifier *oidc.IDTokenVerifier, store *session.Store, clientId string, clientSecret string) fiber.Handler {
 	return func(c *fiber.Ctx) (err error) {
@@ -84,6 +90,7 @@ func checkAuthorizationHeader(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) erro
 	return nil
 }
 
+/* Issue refresh token request */
 func fetchNewToken(provider *oidc.Provider, refreshToken string, redirectUri string, clientId string, clientSecret string) (oauth2.Token, error) {
 	client := resty.New()
 	client.SetDebug(true)

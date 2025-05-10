@@ -33,7 +33,7 @@ func NewOrganizationService(tDao dao.TenantDao, oDao dao.OrganizationDao, sDao d
 func (orgService *OrganizationService) CreateOrganization(tenantUuid string, orgCreateReq dtos.CreateOrgRequest, parentContext context.Context) (model.CompositeId, error) {
 	var nilComposite model.CompositeId
 
-	c, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "ORG-LIST-SERVICE")
+	c, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "ORG-CREATE-SERVICE")
 	defer span.End()
 
 	// Find tenant

@@ -36,7 +36,7 @@ func NewUserService(tenantFunctions functions.TenantFunctions, orgsFunctions fun
 func (userService UserService) CreateUser(tenantUuid string, orgUuid string, createUserReq dtos.CreateUserRequest, parentContext context.Context) (model.CompositeId, error) {
 	var nilComposite model.CompositeId
 
-	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-USER-CREATE")
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-CREATE-SERVICE")
 	defer span.End()
 
 	// Ensure tenant exists

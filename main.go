@@ -46,6 +46,7 @@ func main() {
 			panic(fmt.Errorf("error reading config : [%w]", err))
 		}
 	}
+	viper.AutomaticEnv()
 	var otelServiceName = semconv.ServiceNameKey.String(viper.GetString("app.name"))
 	var otelServiceVersion = semconv.ServiceVersionKey.String(viper.GetString("app.version"))
 

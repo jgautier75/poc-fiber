@@ -14,6 +14,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
+/* Verify token signature and claims */
 func VerifyAndStoreToken(ctx *fiber.Ctx, token oauth2.Token, httpSession *session.Session, verifier *oidc.IDTokenVerifier) (model.Claims, error) {
 	var claims model.Claims
 	idToken, errVerify := verifier.Verify(context.Background(), token.AccessToken)
