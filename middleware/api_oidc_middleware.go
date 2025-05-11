@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"poc-fiber/commons"
 	"poc-fiber/exceptions"
 	"poc-fiber/oauth"
 	"poc-fiber/security"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-resty/resty/v2"
@@ -22,50 +24,70 @@ func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRed
 	return func(c *fiber.Ctx) (err error) {
 		p := c.Path()
 		if strings.HasPrefix(p, apiBaseUri) {
-			hasAuth, errAuth := hasAuthorizationBearer(c, oauthmgr.Verifier)
+			httpSession, errSession := store.Get(c)
+			defer httpSession.Save()
+
+			hasAuth, _, errAuth := hasAuthorizationBearer(c, oauthmgr.Verifier)
 			sid := c.Cookies(commons.HEADER_SESSION_ID)
-			if hasAuth && errAuth != nil {
-				return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errAuth, fiber.StatusUnauthorized))
+			var forceRefreshToken = false
+			var accessDenied = false
+			if hasAuth {
+				if errAuth != nil {
+					if isExpiredToken(errAuth) {
+						forceRefreshToken = true
+					} else {
+						accessDenied = true
+					}
+				}
 			} else if sid != "" {
-				httpSession, errSession := store.Get(c)
-				defer httpSession.Save()
+
 				if errSession != nil {
-					c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errors.New("no session found"), fiber.StatusUnauthorized))
+					accessDenied = true
 				}
 
 				// Check if token in session exists and is valid
-				// If exists but expired, try to get a new access token based on refresh token
-				token, errSession := checkRefreshTokenInSession(httpSession, oauthmgr.Verifier)
+				_, errSession := checkRefreshTokenInSession(httpSession, oauthmgr.Verifier)
 				if errSession != nil {
-					if errors.Is(errSession, &oidc.TokenExpiredError{}) {
-						tokenData, errFetch := fetchNewToken(oauthmgr.Provider, token.RefreshToken, renewRedirectUri, viper.GetString("oauth2.clientId"), "oauth2.clientSecret")
-						if errFetch != nil {
-							return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToInternalError(errFetch))
-						}
-						_, errStore := security.VerifyAndStoreToken(c, tokenData, httpSession, oauthmgr.Verifier)
-						if errStore != nil {
-							return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errStore, fiber.StatusUnauthorized))
-						}
+					if isExpiredToken(errSession) {
+						forceRefreshToken = true
 					} else {
-						return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errSession, fiber.StatusUnauthorized))
+						accessDenied = true
 					}
 				}
-			} else {
-				return c.Status(fiber.StatusUnauthorized).JSON(errors.New("neither authorization header nor session cookie found"))
 			}
-			return c.Next()
+
+			if accessDenied {
+				return c.Status(fiber.StatusUnauthorized).JSON(errors.New("access denied"))
+			} else if forceRefreshToken {
+				tkn := httpSession.Get(commons.SESSION_ATTR_TOKEN)
+				if tkn != nil {
+					tokenData, errFetch := fetchNewToken(oauthmgr.Provider, tkn.(oauth2.Token).RefreshToken, renewRedirectUri, viper.GetString("oauth2.clientId"), "oauth2.clientSecret")
+					if errFetch != nil {
+						return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToInternalError(errFetch))
+					}
+					_, errStore := security.VerifyAndStoreToken(c, tokenData, httpSession, oauthmgr.Verifier)
+					if errStore != nil {
+						return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errStore, fiber.StatusUnauthorized))
+					}
+				} else {
+					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errors.New("token not found"), fiber.StatusUnauthorized))
+				}
+			} else {
+				return c.Next()
+			}
 		}
 		return c.Next()
 	}
 }
 
-func hasAuthorizationBearer(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) (bool, error) {
+func hasAuthorizationBearer(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) (bool, time.Time, error) {
 	auth := c.GetReqHeaders()[commons.HEADER_AUTHORIZATION]
+	var nilTime time.Time
 	if auth != nil {
-		errAuth := checkAuthorizationHeader(c, verifier)
-		return true, errAuth
+		expiryTime, errAuth := checkAuthorizationHeader(c, verifier)
+		return true, expiryTime, errAuth
 	}
-	return false, nil
+	return false, nilTime, nil
 }
 
 func checkRefreshTokenInSession(httpSession *session.Session, verifier *oidc.IDTokenVerifier) (oauth2.Token, error) {
@@ -84,34 +106,49 @@ func checkRefreshTokenInSession(httpSession *session.Session, verifier *oidc.IDT
 	}
 }
 
-func checkAuthorizationHeader(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) error {
+func checkAuthorizationHeader(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) (time.Time, error) {
+	var nilTime time.Time
 	auth := c.GetReqHeaders()[commons.HEADER_AUTHORIZATION]
 	if auth != nil {
 		if !strings.HasPrefix(auth[0], commons.HEADER_BEARER) {
-			return errors.New("bearer expected")
+			return nilTime, errors.New("bearer expected")
 		}
 		reqToken := strings.Split(auth[0], " ")[1]
-		_, errDecode := verifier.Verify(context.Background(), reqToken)
+		idToken, errDecode := verifier.Verify(context.Background(), reqToken)
 		if errDecode != nil {
 			if errors.Is(errDecode, &oidc.TokenExpiredError{}) {
-				return errors.New("expired token")
+				return nilTime, errors.New("expired token")
 			} else {
-				return errDecode
+				return nilTime, errDecode
 			}
 		}
+		expiryTime := idToken.Expiry
+		return expiryTime, nil
 	}
-	return nil
+	return nilTime, nil
 }
 
 /* Issue refresh token request */
 func fetchNewToken(provider *oidc.Provider, refreshToken string, redirectUri string, clientId string, clientSecret string) (oauth2.Token, error) {
+	appBase := viper.GetString("app.server.base")
+	appPort := viper.GetString("app.server.port")
+	var strBuffer strings.Builder
+	strBuffer.Write([]byte(appBase))
+	if appPort != "" {
+		strBuffer.Write([]byte(":"))
+		strBuffer.Write([]byte(appPort))
+	}
+	strBuffer.Write([]byte(redirectUri))
+
 	client := resty.New()
 	client.SetDebug(true)
 	client.SetCloseConnection(true)
+
+	fullRedirectUri := strBuffer.String()
 	res, errPost := client.SetBasicAuth(clientId, clientSecret).R().SetFormData(map[string]string{
 		"grant_type":    "refresh_token",
 		"refresh_token": refreshToken,
-		"redirect_uri":  redirectUri,
+		"redirect_uri":  fullRedirectUri,
 		"scope":         "offline_access openid profile email",
 	}).
 		SetHeader("Cache-Control", "no-cache").
@@ -125,4 +162,9 @@ func fetchNewToken(provider *oidc.Provider, refreshToken string, redirectUri str
 		return newToken, errUnmarshal
 	}
 	return newToken, nil
+}
+
+func isExpiredToken(errAuth error) bool {
+	fmtError := fmt.Errorf("%w", errAuth)
+	return strings.Contains(fmtError.Error(), "token is expired")
 }

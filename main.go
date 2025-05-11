@@ -156,6 +156,8 @@ func main() {
 	logger.Info("Application -> Setup")
 	app := fiber.New(fConfig)
 
+	// Fetch OIDC .well-known url
+	logger.Info("OIDC -> Fetch .well-known url [" + viper.GetString("oauth2.issuer") + "]")
 	fOAuth := oauth.NewOAuthManager()
 	authMgr, errFetch := fOAuth.InitOAuthManager(context.Background(), logger)
 	if errFetch != nil {
@@ -164,7 +166,7 @@ func main() {
 
 	logger.Info("Middleware -> Setup")
 
-	app.Use(middleware.InitOidcMiddleware(authMgr, apiBaseUri, versionsApi, store))
+	app.Use(middleware.InitOidcMiddleware(authMgr, fullApiUri, versionsApi, store))
 
 	logger.Info("Endpoints -> Setup")
 	app.Get("/"+appContext+"/home", endpoints.MakeIndex(authMgr.OAuthConfig, store))
