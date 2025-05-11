@@ -22,47 +22,65 @@ func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRed
 	return func(c *fiber.Ctx) (err error) {
 		p := c.Path()
 		if strings.HasPrefix(p, apiBaseUri) {
-			auth := c.GetReqHeaders()[commons.HEADER_AUTHORIZATION]
+			hasAuth, errAuth := hasAuthorizationBearer(c, oauthmgr.Verifier)
 			sid := c.Cookies(commons.HEADER_SESSION_ID)
-			if auth != nil {
-				errAuth := checkAuthorizationHeader(c, oauthmgr.Verifier)
-				if errAuth != nil {
-					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errAuth, fiber.StatusUnauthorized))
-				}
+			if hasAuth && errAuth != nil {
+				return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errAuth, fiber.StatusUnauthorized))
 			} else if sid != "" {
 				httpSession, errSession := store.Get(c)
 				defer httpSession.Save()
 				if errSession != nil {
 					c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errors.New("no session found"), fiber.StatusUnauthorized))
 				}
-				refreshToken, errSession := checkRefreshTokenInSession(httpSession)
+
+				// Check if token in session exists and is valid
+				// If exists but expired, try to get a new access token based on refresh token
+				token, errSession := checkRefreshTokenInSession(httpSession, oauthmgr.Verifier)
 				if errSession != nil {
-					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errSession, fiber.StatusUnauthorized))
-				}
-				tokenData, errFetch := fetchNewToken(oauthmgr.Provider, refreshToken, renewRedirectUri, viper.GetString("oauth2.clientId"), "oauth2.clientSecret")
-				if errFetch != nil {
-					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToInternalError(errFetch))
-				}
-				_, errStore := security.VerifyAndStoreToken(c, tokenData, httpSession, oauthmgr.Verifier)
-				if errStore != nil {
-					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errStore, fiber.StatusUnauthorized))
+					if errors.Is(errSession, &oidc.TokenExpiredError{}) {
+						tokenData, errFetch := fetchNewToken(oauthmgr.Provider, token.RefreshToken, renewRedirectUri, viper.GetString("oauth2.clientId"), "oauth2.clientSecret")
+						if errFetch != nil {
+							return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToInternalError(errFetch))
+						}
+						_, errStore := security.VerifyAndStoreToken(c, tokenData, httpSession, oauthmgr.Verifier)
+						if errStore != nil {
+							return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errStore, fiber.StatusUnauthorized))
+						}
+					} else {
+						return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errSession, fiber.StatusUnauthorized))
+					}
 				}
 			} else {
 				return c.Status(fiber.StatusUnauthorized).JSON(errors.New("neither authorization header nor session cookie found"))
 			}
+			return c.Next()
 		}
 		return c.Next()
 	}
 }
 
-func checkRefreshTokenInSession(httpSession *session.Session) (string, error) {
-	var nilString string
+func hasAuthorizationBearer(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) (bool, error) {
+	auth := c.GetReqHeaders()[commons.HEADER_AUTHORIZATION]
+	if auth != nil {
+		errAuth := checkAuthorizationHeader(c, verifier)
+		return true, errAuth
+	}
+	return false, nil
+}
+
+func checkRefreshTokenInSession(httpSession *session.Session, verifier *oidc.IDTokenVerifier) (oauth2.Token, error) {
+	var nilToken oauth2.Token
 	tkn := httpSession.Get(commons.SESSION_ATTR_TOKEN)
 	var nilTkn interface{}
 	if tkn == nilTkn {
-		return nilString, errors.New("no token in session")
+		return nilToken, errors.New("no token in session")
 	} else {
-		return tkn.(oauth2.Token).RefreshToken, nil
+		var token = tkn.(oauth2.Token)
+		_, errVerify := verifier.Verify(context.Background(), token.AccessToken)
+		if errVerify != nil {
+			return nilToken, errVerify
+		}
+		return token, nil
 	}
 }
 

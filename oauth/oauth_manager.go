@@ -11,11 +11,12 @@ import (
 )
 
 type OAuthManager struct {
-	Provider          *oidc.Provider
-	OAuthEndpoints    *authentik.OAuthEndpoints
-	OAuthConfig       *oauth2.Config
-	Verifier          *oidc.IDTokenVerifier
-	OAuthCallBackFull string
+	Provider             *oidc.Provider
+	OAuthEndpoints       *authentik.OAuthEndpoints
+	OAuthConfig          *oauth2.Config
+	Verifier             *oidc.IDTokenVerifier
+	OAuthCallBackFullUrl string
+	OAuthCallBackUri     string
 }
 
 type FetchOidcResult struct {
@@ -41,7 +42,8 @@ func (oAuthManager OAuthManager) InitOAuthManager(ctx context.Context, logger za
 	} else {
 		oauthCallBackFull = appBase + oauthCallBackUri
 	}
-	oAuthManager.OAuthCallBackFull = oauthCallBackFull
+	oAuthManager.OAuthCallBackFullUrl = oauthCallBackFull
+	oAuthManager.OAuthCallBackUri = oauthCallBackUri
 	oauth2Issuer := viper.GetString("oauth2.issuer")
 
 	// Setup OIDC - Fetch .well-known endpoint  asynchronously
@@ -80,7 +82,6 @@ func (oAuthManager OAuthManager) InitOAuthManager(ctx context.Context, logger za
 		Scopes: []string{oidc.ScopeOpenID, "profile", "email", "offline_access"},
 	}
 
-	tokenVerifier := oAuthManager.Provider.Verifier(&oidc.Config{ClientID: clientId})
-	oAuthManager.Verifier = tokenVerifier
+	oAuthManager.Verifier = oAuthManager.Provider.Verifier(&oidc.Config{ClientID: clientId})
 	return oAuthManager, nil
 }

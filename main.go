@@ -167,12 +167,12 @@ func main() {
 	app.Use(middleware.InitOidcMiddleware(authMgr, apiBaseUri, versionsApi, store))
 
 	logger.Info("Endpoints -> Setup")
-	app.Get("/"+appContext+"/home", endpoints.MakeIndex(fOAuth.OAuthConfig, store))
+	app.Get("/"+appContext+"/home", endpoints.MakeIndex(authMgr.OAuthConfig, store))
 	app.Get(versionsApi, endpoints.MakeVersions(viper.GetString("app.version")))
-	app.Delete(fullApiUri+"/sessions", endpoints.DeleteSession(clientId, clientSecret, store, fOAuth.OAuthEndpoints, logger))
+	app.Delete(fullApiUri+"/sessions", endpoints.DeleteSession(clientId, clientSecret, store, authMgr.OAuthEndpoints, logger))
 
 	// OIDC
-	app.Get(fOAuth.OAuthCallBackFull, endpoints.MakeOAuthCallback(fOAuth.OAuthConfig, store, fOAuth.Verifier))
+	app.Get(authMgr.OAuthCallBackUri, endpoints.MakeOAuthCallback(authMgr.OAuthConfig, store, authMgr.Verifier))
 
 	// Organizations
 	app.Get(apiOrgsPrefix, endpoints.MakeOrgFindAll(orgService))
