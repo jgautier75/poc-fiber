@@ -24,41 +24,12 @@ func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRed
 	return func(c *fiber.Ctx) (err error) {
 		p := c.Path()
 		if strings.HasPrefix(p, apiBaseUri) {
-			httpSession, errSession := store.Get(c)
-			defer httpSession.Save()
-
-			hasAuth, _, errAuth := hasAuthorizationBearer(c, oauthmgr.Verifier)
-			sid := c.Cookies(commons.HEADER_SESSION_ID)
-			var forceRefreshToken = false
-			var accessDenied = false
-			if hasAuth {
-				if errAuth != nil {
-					if isExpiredToken(errAuth) {
-						forceRefreshToken = true
-					} else {
-						accessDenied = true
-					}
-				}
-			} else if sid != "" {
-
-				if errSession != nil {
-					accessDenied = true
-				}
-
-				// Check if token in session exists and is valid
-				_, errSession := checkRefreshTokenInSession(httpSession, oauthmgr.Verifier)
-				if errSession != nil {
-					if isExpiredToken(errSession) {
-						forceRefreshToken = true
-					} else {
-						accessDenied = true
-					}
-				}
-			}
-
-			if accessDenied {
+			forceRefreshToken, accessDenied, errCheck := checkHeaderAndSession(c, store, oauthmgr)
+			if accessDenied || errCheck != nil {
 				return c.Status(fiber.StatusUnauthorized).JSON(errors.New("access denied"))
 			} else if forceRefreshToken {
+				httpSession, _ := store.Get(c)
+				defer httpSession.Save()
 				tkn := httpSession.Get(commons.SESSION_ATTR_TOKEN)
 				if tkn != nil {
 					tokenData, errFetch := fetchNewToken(oauthmgr.Provider, tkn.(oauth2.Token).RefreshToken, renewRedirectUri, viper.GetString("oauth2.clientId"), "oauth2.clientSecret")
@@ -78,6 +49,40 @@ func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRed
 		}
 		return c.Next()
 	}
+}
+
+func checkHeaderAndSession(c *fiber.Ctx, store *session.Store, oauthmgr oauth.OAuthManager) (bool, bool, error) {
+	hasAuth, _, errAuth := hasAuthorizationBearer(c, oauthmgr.Verifier)
+	sid := c.Cookies(commons.HEADER_SESSION_ID)
+	httpSession, errSession := store.Get(c)
+
+	var forceRefreshToken = false
+	var accessDenied = false
+	if hasAuth {
+		if errAuth != nil {
+			if isExpiredToken(errAuth) {
+				forceRefreshToken = true
+			} else {
+				accessDenied = true
+			}
+		}
+	} else if sid != "" {
+
+		if errSession != nil {
+			accessDenied = true
+		}
+
+		// Check if token in session exists and is valid
+		_, errSession := checkRefreshTokenInSession(httpSession, oauthmgr.Verifier)
+		if errSession != nil {
+			if isExpiredToken(errSession) {
+				forceRefreshToken = true
+			} else {
+				accessDenied = true
+			}
+		}
+	}
+	return forceRefreshToken, accessDenied, errSession
 }
 
 func hasAuthorizationBearer(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) (bool, time.Time, error) {

@@ -36,6 +36,8 @@ func (oAuthManager OAuthManager) InitOAuthManager(ctx context.Context, logger za
 	appContext := viper.GetString("app.server.context")
 	appPort := viper.GetString("app.server.port")
 	oauthCallBackUri := "/" + appContext + "/oauth2/callback"
+	oauth2Issuer := viper.GetString("oauth2.issuer")
+
 	var oauthCallBackFull string
 	if appPort != "" {
 		oauthCallBackFull = appBase + ":" + appPort + oauthCallBackUri
@@ -44,7 +46,6 @@ func (oAuthManager OAuthManager) InitOAuthManager(ctx context.Context, logger za
 	}
 	oAuthManager.OAuthCallBackFullUrl = oauthCallBackFull
 	oAuthManager.OAuthCallBackUri = oauthCallBackUri
-	oauth2Issuer := viper.GetString("oauth2.issuer")
 
 	// Setup OIDC - Fetch .well-known endpoint  asynchronously
 	var nilProvider oidc.Provider
