@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"poc-fiber/authentik"
 	"poc-fiber/certificates"
 	"poc-fiber/dao"
 	"poc-fiber/endpoints"
@@ -16,12 +15,12 @@ import (
 	"poc-fiber/logger"
 	"poc-fiber/middleware"
 	"poc-fiber/migrate"
+	"poc-fiber/oauth"
 	"poc-fiber/opentelemetry"
 	"poc-fiber/services"
 	"syscall"
 	"time"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/spf13/viper"
@@ -36,9 +35,13 @@ func main() {
 	gob.Register(time.Time{})
 	gob.Register(oauth2.Token{})
 
+	// Read main config
+	viper.SetEnvPrefix("EV")
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./config")
+	viper.AutomaticEnv()
+
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			panic(fmt.Errorf("config file not found : [%w]", err))
@@ -46,11 +49,17 @@ func main() {
 			panic(fmt.Errorf("error reading config : [%w]", err))
 		}
 	}
-	viper.AutomaticEnv()
-	var otelServiceName = semconv.ServiceNameKey.String(viper.GetString("app.name"))
-	var otelServiceVersion = semconv.ServiceVersionKey.String(viper.GetString("app.version"))
+
+	// Read sql queries config
+	viper.SetConfigName("sql")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("./config")
+	viper.MergeInConfig()
 
 	logger := logger.ConfigureLogger(viper.GetString("app.logFile"), true, true)
+
+	var otelServiceName = semconv.ServiceNameKey.String(viper.GetString("app.name"))
+	var otelServiceVersion = semconv.ServiceVersionKey.String(viper.GetString("app.version"))
 
 	// Generate certificates
 	certificates.GenerateSelfSignedCerts(logger)
@@ -68,44 +77,7 @@ func main() {
 
 	clientId := viper.GetString("oauth2.clientId")
 	clientSecret := viper.GetString("oauth2.clientSecret")
-	appBase := viper.GetString("app.server.base")
 	appContext := viper.GetString("app.server.context")
-	appPort := viper.GetString("app.server.port")
-	oauthCallBackUri := "/" + appContext + "/oauth2/callback"
-	oauthCallBackFull := appBase + ":" + appPort + oauthCallBackUri
-	oauth2Issuer := viper.GetString("oauth2.issuer")
-
-	// Setup OIDC - Fetch .well-known endpoint  asynchronously
-	var provider *oidc.Provider
-	asyncOidcIssuer := make(chan *oidc.Provider, 1)
-	go func() {
-		oidcprov, oidcError := oidc.NewProvider(context.Background(), oauth2Issuer)
-		if oidcError != nil {
-			panic(fmt.Errorf("oidc prodider error: [%w]", oidcError))
-		}
-		asyncOidcIssuer <- oidcprov
-	}()
-	provider = <-asyncOidcIssuer
-
-	// Custom fetch (go-oidc does not fetch revoke token url)
-	var oauthConfig *authentik.OauthConfiguration
-	asyncOAuthConfig := make(chan *authentik.OauthConfiguration)
-	go func() {
-		authCfg := authentik.FetchOAuthConfiguration(oauth2Issuer, logger)
-		asyncOAuthConfig <- authCfg
-	}()
-	oauthConfig = <-asyncOAuthConfig
-
-	oauth2Config := oauth2.Config{
-		ClientID:     clientId,
-		ClientSecret: clientSecret,
-		RedirectURL:  oauthCallBackFull,
-		// Discovery returns the OAuth2 endpoints.
-		Endpoint: provider.Endpoint(),
-		// "openid" is a required scope for OpenID Connect flows.
-		Scopes: []string{oidc.ScopeOpenID, "profile", "email", "offline_access"},
-	}
-	tokenVerifier := provider.Verifier(&oidc.Config{ClientID: clientId})
 
 	// Opentelemetry
 	logger.Info("OpenTelemetry > Setup")
@@ -184,16 +156,23 @@ func main() {
 	logger.Info("Application -> Setup")
 	app := fiber.New(fConfig)
 
+	fOAuth := oauth.NewOAuthManager()
+	authMgr, errFetch := fOAuth.InitOAuthManager(context.Background(), logger)
+	if errFetch != nil {
+		panic(fmt.Errorf("error fetching .well-known issuer: [%w]", err))
+	}
+
 	logger.Info("Middleware -> Setup")
-	app.Use(middleware.NewApiOidcHandler(fullApiUri, versionsApi, provider, tokenVerifier, store, clientId, clientSecret))
+
+	app.Use(middleware.InitOidcMiddleware(authMgr, apiBaseUri, versionsApi, store))
 
 	logger.Info("Endpoints -> Setup")
-	app.Get("/"+appContext+"/home", endpoints.MakeIndex(oauth2Config, store))
+	app.Get("/"+appContext+"/home", endpoints.MakeIndex(fOAuth.OAuthConfig, store))
 	app.Get(versionsApi, endpoints.MakeVersions(viper.GetString("app.version")))
-	app.Delete(fullApiUri+"/sessions", endpoints.DeleteSession(clientId, clientSecret, store, oauthConfig, logger))
+	app.Delete(fullApiUri+"/sessions", endpoints.DeleteSession(clientId, clientSecret, store, fOAuth.OAuthEndpoints, logger))
 
 	// OIDC
-	app.Get(oauthCallBackUri, endpoints.MakeOAuthCallback(oauth2Config, store, tokenVerifier))
+	app.Get(fOAuth.OAuthCallBackFull, endpoints.MakeOAuthCallback(fOAuth.OAuthConfig, store, fOAuth.Verifier))
 
 	// Organizations
 	app.Get(apiOrgsPrefix, endpoints.MakeOrgFindAll(orgService))

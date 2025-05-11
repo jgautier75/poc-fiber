@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type OauthConfiguration struct {
+type OAuthEndpoints struct {
 	Issuer                            string   `json:"issuer"`
 	AuthorizationEndpoint             string   `json:"authorization_endpoint"`
 	TokenEndpoint                     string   `json:"token_endpoint"`
@@ -33,7 +33,7 @@ type OauthConfiguration struct {
 	CodeChallengeMethodsSupported     []string `json:"code_challenge_methods_supported"`
 }
 
-func FetchOAuthConfiguration(rootUrl string, logger zap.Logger) *OauthConfiguration {
+func FetchOAuthConfiguration(rootUrl string, logger zap.Logger) *OAuthEndpoints {
 	var wellKnown = strings.TrimSuffix(rootUrl, "/") + "/.well-known/openid-configuration"
 	client := resty.New()
 	client.SetDebug(true)
@@ -42,7 +42,7 @@ func FetchOAuthConfiguration(rootUrl string, logger zap.Logger) *OauthConfigurat
 	if errGet != nil {
 		logger.Error("error retrieving .wellknown openid-configuration", zap.Error(errGet))
 	}
-	var oauthConfig *OauthConfiguration
+	var oauthConfig *OAuthEndpoints
 	errUnmarshal := json.Unmarshal(res.Body(), &oauthConfig)
 	if errUnmarshal != nil {
 		logger.Error("error unmarshalling .wellknown openid-configuration", zap.Error(errUnmarshal))

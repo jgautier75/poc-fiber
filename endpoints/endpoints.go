@@ -27,7 +27,7 @@ const PKCE_VERIFIER = "pkceAuthCodeOption"
 
 var validate = validator.New()
 
-func MakeIndex(oauthCfg oauth2.Config, store *session.Store) func(ctx *fiber.Ctx) error {
+func MakeIndex(oauthCfg *oauth2.Config, store *session.Store) func(ctx *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
 		httpSession, errSession := store.Get(c)
@@ -74,7 +74,7 @@ func MakeVersions(appVersion string) func(ctx *fiber.Ctx) error {
 	}
 }
 
-func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *oidc.IDTokenVerifier) func(ctx *fiber.Ctx) error {
+func MakeOAuthCallback(oauthCfg *oauth2.Config, store *session.Store, verifier *oidc.IDTokenVerifier) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		code := ctx.Query("code")
 		reqState := ctx.Query(HEADER_STATE)
@@ -122,7 +122,7 @@ func MakeOAuthCallback(oauthCfg oauth2.Config, store *session.Store, verifier *o
 	}
 }
 
-func DeleteSession(clientId string, clientSecret string, store *session.Store, oauthCfg *authentik.OauthConfiguration, logger zap.Logger) func(ctx *fiber.Ctx) error {
+func DeleteSession(clientId string, clientSecret string, store *session.Store, oauthCfg *authentik.OAuthEndpoints, logger zap.Logger) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		httpSession, errSession := store.Get(ctx)
 		if errSession != nil {

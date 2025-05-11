@@ -1,0 +1,23 @@
+sql:
+  tenants:
+    findByCode: "select id,uuid,code,label from tenants where code=$1"
+    findByUuid: "select id,uuid,code,label from tenants where uuid=$1"
+    updateLabelByUuid: "update tenants set label:=$1 where uuid:=$2"
+  organizations:
+    create: "insert into organizations (tenants_id,uuid,code,label,type) values ($1,$2,$3,$4,$5) returning id"
+    updateLabelByUuid: "update organizations set label:=$1 where uuid:=$2"
+    findAllDisplay: "select id,tenants_id,uuid,code,label,type from organizations where tenants_id=$1"
+    findByTenantAndUuid: "select id,tenants_id,uuid,code,label,type from organizations where tenants_id=$1 and uuid=$2"
+    existsByCode: "select count(1) from organizations where code=$1"
+  sectors:
+    create: "insert into sectors (tenants_id,organizations_id,uuid,code,label,parent_id,has_parent,depth) values ($1,$2,$3,$4,$5,$6,$7,$8) returning id"
+    findByTenantOrg: "select id,tenants_id,organizations_id,uuid,code,label,parent_id,has_parent,depth from sectors where tenants_id=$1 and organizations_id=$2 order by label asc"
+    findByUuid: "select id,tenants_id,organizations_id,uuid,code,label,parent_id,has_parent,depth from sectors where uuid=$1"
+  users:
+    create: "insert into users (tenants_id,organizations_id,uuid,last_name,first_name,login,email) values($1,$2,$3,$4,$5,$6,$7) returning id"
+    loginExists: "select count(1) from users where login=$1"
+    emailExists: "select count(1) from users where email=$1"
+    findAllByTenantAndOrg: "select id,tenants_id,organizations_id,uuid,last_name,first_name,login,email from users where tenants_id=$1 and organizations_id=$2"
+    countByTenantAndOrg: "select count(1) from users where tenants_id=$1 and organizations_id=$2"
+    existsByUuid: "select count(1) from users where tenants_id=$1 and organizations_id=$2 and uuid=$3"
+    delete: "delete from users where id=$1"

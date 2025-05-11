@@ -6,6 +6,7 @@ import (
 	"errors"
 	"poc-fiber/commons"
 	"poc-fiber/exceptions"
+	"poc-fiber/oauth"
 	"poc-fiber/security"
 	"strings"
 
@@ -13,24 +14,18 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 )
 
-/*
-- Instantiate an OIDC Handler.
-- Protect only /api/xx URIs
-- First check if request contains an Authorization header and if it contains a valid bearer
-- Otherwise check if any sessionId and if so, try to get a new token using refresh token
-*/
-func NewApiOidcHandler(apiBaseUri string, renewRedirectUri string, provider *oidc.Provider,
-	verifier *oidc.IDTokenVerifier, store *session.Store, clientId string, clientSecret string) fiber.Handler {
+func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRedirectUri string, store *session.Store) fiber.Handler {
 	return func(c *fiber.Ctx) (err error) {
 		p := c.Path()
 		if strings.HasPrefix(p, apiBaseUri) {
 			auth := c.GetReqHeaders()[commons.HEADER_AUTHORIZATION]
 			sid := c.Cookies(commons.HEADER_SESSION_ID)
 			if auth != nil {
-				errAuth := checkAuthorizationHeader(c, verifier)
+				errAuth := checkAuthorizationHeader(c, oauthmgr.Verifier)
 				if errAuth != nil {
 					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errAuth, fiber.StatusUnauthorized))
 				}
@@ -44,11 +39,11 @@ func NewApiOidcHandler(apiBaseUri string, renewRedirectUri string, provider *oid
 				if errSession != nil {
 					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errSession, fiber.StatusUnauthorized))
 				}
-				tokenData, errFetch := fetchNewToken(provider, refreshToken, renewRedirectUri, clientId, clientSecret)
+				tokenData, errFetch := fetchNewToken(oauthmgr.Provider, refreshToken, renewRedirectUri, viper.GetString("oauth2.clientId"), "oauth2.clientSecret")
 				if errFetch != nil {
 					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToInternalError(errFetch))
 				}
-				_, errStore := security.VerifyAndStoreToken(c, tokenData, httpSession, verifier)
+				_, errStore := security.VerifyAndStoreToken(c, tokenData, httpSession, oauthmgr.Verifier)
 				if errStore != nil {
 					return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errStore, fiber.StatusUnauthorized))
 				}

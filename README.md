@@ -64,3 +64,9 @@ Open url with recovery url above:
 ```
 http://localhost:9000/recovery/use-token/YCk1Xednn1Y3YQy84CyfaKHBsxSOE7gXazB4KqNCDWyDT9c0uhs8HaGO4li7/
 ```
+
+## Configuration
+
+Main configuration is store in config.config.yml file. To override values, provide environment variables prefixed with "EV_".
+
+Example: To override the "app.name" configuration in config.yml file, provider an EV_APP.NAME environment variable.
