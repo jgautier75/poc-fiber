@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"poc-fiber/certificates"
@@ -24,9 +23,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/spf13/viper"
-	"go.opentelemetry.io/otel/log/global"
-	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.30.0"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 )
 
@@ -58,9 +55,6 @@ func main() {
 
 	logger := logger.ConfigureLogger(viper.GetString("app.logFile"), true, true)
 
-	var otelServiceName = semconv.ServiceNameKey.String(viper.GetString("app.name"))
-	var otelServiceVersion = semconv.ServiceVersionKey.String(viper.GetString("app.version"))
-
 	// Generate certificates
 	certificates.GenerateSelfSignedCerts(logger)
 
@@ -81,50 +75,17 @@ func main() {
 
 	// Opentelemetry
 	logger.Info("OpenTelemetry > Setup")
-	otelResource, errResource := resource.New(context.Background(),
-		resource.WithAttributes(
-			// The service name used to display traces in backends
-			otelServiceName,
-			// The service version used to display traces in backends
-			otelServiceVersion,
-		),
-	)
-	if errResource != nil {
-		panic(fmt.Errorf("error setting up opentelemetry resource [%w]", errResource))
-	}
-
-	// Initialize GRPC connection to opentelemetry-collector
-	grpcClientCon, errGrpcCon := opentelemetry.InitGrpcConn(viper.GetString("otel.endpoint"))
-	if errGrpcCon != nil {
-		panic(fmt.Errorf("error setting up opentelemetry grpc connection [%w]", errGrpcCon))
-	}
-
-	shutdownTracerProvider, err := opentelemetry.InitTracerProvider(context.Background(), otelResource, grpcClientCon)
-	if err != nil {
-		panic(fmt.Errorf("error setting up opentelemetry tracer provider [%w]", errGrpcCon))
-	}
-	defer func() {
-		if err := shutdownTracerProvider(context.Background()); err != nil {
-			log.Fatalf("failed to shutdown TracerProvider: %s", err)
-		}
-	}()
-
-	loggerProvider, err := opentelemetry.InitLoggerProvider(context.Background(), otelResource, grpcClientCon)
-	if err != nil {
-		panic(err)
+	otelShutdownFuncs, errOtel := opentelemetry.Setup(context.Background())
+	if errOtel != nil {
+		panic(fmt.Errorf("error setting up opentelemetry [%w]", errOtel))
 	}
 	// Handle shutdown properly so nothing leaks.
 	defer func() {
-		if err := loggerProvider.Shutdown(context.Background()); err != nil {
-			fmt.Println(err)
+		for _, shutdownFn := range otelShutdownFuncs {
+			errShutdown := shutdownFn(context.Background())
+			logger.Error("error shutting down opentelemetry", zap.Error(errShutdown))
 		}
 	}()
-
-	// Register as global logger provider so that it can be accessed global.LoggerProvider.
-	// Most log bridges use the global logger provider as default.
-	// If the global logger provider is not set then a no-op implementation
-	// is used, which fails to generate data.
-	global.SetLoggerProvider(loggerProvider)
 
 	//Setup Dao & Services
 	var tenantDao = dao.NewTenantDao(dbPool)
@@ -161,7 +122,7 @@ func main() {
 	fOAuth := oauth.NewOAuthManager()
 	authMgr, errFetch := fOAuth.InitOAuthManager(context.Background(), logger)
 	if errFetch != nil {
-		panic(fmt.Errorf("error fetching .well-known issuer: [%w]", err))
+		panic(fmt.Errorf("error fetching .well-known issuer: [%w]", errFetch))
 	}
 
 	logger.Info("Middleware -> Setup")
