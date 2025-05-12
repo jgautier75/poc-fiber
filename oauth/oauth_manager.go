@@ -19,11 +19,6 @@ type OAuthManager struct {
 	OAuthCallBackUri     string
 }
 
-type FetchOidcResult struct {
-	Provider *oidc.Provider
-	Error    error
-}
-
 func NewOAuthManager() OAuthManager {
 	oauthMgr := OAuthManager{}
 	return oauthMgr
@@ -48,26 +43,13 @@ func (oAuthManager OAuthManager) InitOAuthManager(ctx context.Context, logger za
 	oAuthManager.OAuthCallBackUri = oauthCallBackUri
 
 	// Setup OIDC - Fetch .well-known endpoint  asynchronously
-	var nilProvider oidc.Provider
-	var fetchResult FetchOidcResult
 	oidcprov, oidcError := oidc.NewProvider(context.Background(), oauth2Issuer)
-	if oidcError != nil {
-		fetchResult = FetchOidcResult{
-			Provider: &nilProvider,
-			Error:    oidcError,
-		}
-	} else {
-		fetchResult = FetchOidcResult{
-			Provider: oidcprov,
-			Error:    nil,
-		}
-	}
 
 	var nilManager OAuthManager
-	if fetchResult.Error != nil {
-		return nilManager, fetchResult.Error
+	if oidcError != nil {
+		return nilManager, oidcError
 	} else {
-		oAuthManager.Provider = fetchResult.Provider
+		oAuthManager.Provider = oidcprov
 	}
 
 	// Custom fetch (go-oidc does not fetch revoke token url)

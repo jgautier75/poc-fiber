@@ -26,13 +26,17 @@ func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRed
 		if strings.HasPrefix(p, apiBaseUri) {
 			forceRefreshToken, accessDenied, errCheck := checkHeaderAndSession(c, store, oauthmgr)
 			if accessDenied || errCheck != nil {
-				return c.Status(fiber.StatusUnauthorized).JSON(errors.New("access denied"))
+				if errCheck != nil {
+					return c.Status(fiber.StatusUnauthorized).JSON(errCheck)
+				} else {
+					return c.Status(fiber.StatusUnauthorized).JSON(errors.New("access denied"))
+				}
 			} else if forceRefreshToken {
 				httpSession, _ := store.Get(c)
 				defer httpSession.Save()
 				tkn := httpSession.Get(commons.SESSION_ATTR_TOKEN)
 				if tkn != nil {
-					tokenData, errFetch := fetchNewToken(oauthmgr.Provider, tkn.(oauth2.Token).RefreshToken, renewRedirectUri, viper.GetString("oauth2.clientId"), "oauth2.clientSecret")
+					tokenData, errFetch := fetchNewToken(oauthmgr.Provider, tkn.(oauth2.Token).RefreshToken, renewRedirectUri, viper.GetString("oauth2.clientId"), viper.GetString("oauth2.clientSecret"))
 					if errFetch != nil {
 						return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToInternalError(errFetch))
 					}
@@ -146,7 +150,7 @@ func fetchNewToken(provider *oidc.Provider, refreshToken string, redirectUri str
 	strBuffer.Write([]byte(redirectUri))
 
 	client := resty.New()
-	client.SetDebug(true)
+	client.SetDebug(false)
 	client.SetCloseConnection(true)
 
 	fullRedirectUri := strBuffer.String()
