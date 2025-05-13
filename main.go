@@ -22,6 +22,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
+	openbao "github.com/openbao/openbao/api/v2"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
@@ -55,11 +56,27 @@ func main() {
 
 	logger := logger.ConfigureLogger(viper.GetString("app.logFile"), true, true)
 
+	// OpenBao
+	config := openbao.DefaultConfig()
+	config.Address = viper.GetString("vault.endpoint")
+	client, err := openbao.NewClient(config)
+	if err != nil {
+		panic(fmt.Errorf("unable to initialize OpenBao client: %v", err))
+	}
+	client.SetToken(viper.GetString("vault.token"))
+
+	secret, err := client.KVv2(viper.GetString("vault.path")).Get(context.Background(), viper.GetString("vault.data"))
+	if err != nil {
+		panic(fmt.Errorf("unable to read secret: %v", err))
+	}
+	vaultData := secret.Data
+	//var test = data["pgUrl"]
+
 	// Generate certificates
 	certificates.GenerateSelfSignedCerts(logger)
 
 	// Perform SQL Migration
-	pgUrl := viper.GetString("app.pgUrl")
+	pgUrl := vaultData["pgUrl"].(string)
 	migrate.PerformMigration(logger, pgUrl, "migrate/files")
 
 	//Setup rdbms connection pool
@@ -69,8 +86,8 @@ func main() {
 	}
 	defer dbPool.Close()
 
-	clientId := viper.GetString("oauth2.clientId")
-	clientSecret := viper.GetString("oauth2.clientSecret")
+	clientId := vaultData["clientId"].(string)
+	clientSecret := vaultData["clientSecret"].(string)
 	appContext := viper.GetString("app.server.context")
 
 	// Opentelemetry
@@ -120,14 +137,13 @@ func main() {
 	// Fetch OIDC .well-known url
 	logger.Info("OIDC -> Fetch .well-known url [" + viper.GetString("oauth2.issuer") + "]")
 	fOAuth := oauth.NewOAuthManager()
-	authMgr, errFetch := fOAuth.InitOAuthManager(context.Background(), logger)
+	authMgr, errFetch := fOAuth.InitOAuthManager(context.Background(), logger, clientId, clientSecret)
 	if errFetch != nil {
 		panic(fmt.Errorf("error fetching .well-known issuer: [%w]", errFetch))
 	}
 
 	logger.Info("Middleware -> Setup")
-
-	app.Use(middleware.InitOidcMiddleware(authMgr, fullApiUri, versionsApi, store))
+	app.Use(middleware.InitOidcMiddleware(authMgr, fullApiUri, versionsApi, store, clientId, clientSecret))
 
 	logger.Info("Endpoints -> Setup")
 	app.Get("/"+appContext+"/home", endpoints.MakeIndex(authMgr.OAuthConfig, store))

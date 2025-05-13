@@ -1,0 +1,65 @@
+# code: language=ansible
+---
+- name: OpenBao Configuration
+  hosts: localhost
+  any_errors_fatal: true
+  vars_files:
+    - secrets.enc
+  tasks:
+    - name: "Configuration: facts"
+      ansible.builtin.debug:
+        var: ansible_facts
+      #when: 0 > 1
+    - name: "Configuration: postgreSQL connection strung (for debugging purpose only)"
+      #when: 0 > 1
+      ansible.builtin.debug:
+        msg: "pgUrl: {{ pgUrl }}"
+    - name: "Configuration: Display OIDC clientId (for debugging purpose only)"
+      #when: 0 > 1
+      ansible.builtin.debug:
+        msg: "clientId: {{ clientId }}"
+    - name: "Configuration: Display OIDC clientSecret (for debugging purpose only)"
+      #when: 0 > 1
+      ansible.builtin.debug:
+        msg: "clientSecret: {{ clientSecret }}"
+    - name: "Configuration: Get ipv4 address"
+      ansible.builtin.debug:
+        var: hostvars[inventory_hostname]['ansible_default_ipv4']['address']
+    - name: "OpenBao - Check is running"
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}:8200/v1/sys/mounts"
+        headers:
+          X-Vault-Token: "{{ hostvars[inventory_hostname]['openbao_token'] }}"
+          status_code: "200"
+    - name: "OpenBao - Setup key value storage v2"
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}:8200/v1/sys/mounts/{{ hostvars[inventory_hostname]['openbao_secrets_path'] }}"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ hostvars[inventory_hostname]['openbao_token'] }}"
+        body: "{\"type\":\"kv-v2\"}"
+        body_format: json
+        status_code: [200,204,400]
+      register: response
+    - name: "OpenBao - Key Value Storage - Fail if not 200 or 400 with error 'path is already in use'"
+      fail:
+        msg: "Request failed with status code {{ response.status }} and message: {{ response.msg }}"
+      when:
+        - response.status != 200 and response.status != 204
+        - not (response.status == 400 and response.json.errors is search("path is already in use"))
+    - name: "OpenBao - Cipher key"
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}:8200/v1/{{ hostvars[inventory_hostname]['openbao_secrets_path'] }}/data/{{ hostvars[inventory_hostname]['openbao_secrets_creds'] }}"
+        method: PUT
+        body: "{ \"options\": {\"cas\": 0}, \"data\": {\"pgUrl\": \"{{ pgUrl }}\", \"clientId\":\"{{ clientId }}\", \"clientSecret\":\"{{ clientSecret }}\"} }"
+        body_format: json
+        status_code: [200,400]
+        headers:
+          X-Vault-Token: "{{ hostvars[inventory_hostname]['openbao_token'] }}"
+      register: response
+    - name: "OpenBao - Cipher Key - Fail if not 200 or 400 with error 'check-and-set parameter did not match the current version'"
+      fail:
+        msg: "Request failed with status code {{ response.status }} and message: {{ response.msg }}"
+      when:
+        - response.status != 200
+        - not (response.status == 400 and response.json.errors is search("check-and-set parameter did not match the current version"))

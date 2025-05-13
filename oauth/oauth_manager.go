@@ -24,10 +24,8 @@ func NewOAuthManager() OAuthManager {
 	return oauthMgr
 }
 
-func (oAuthManager OAuthManager) InitOAuthManager(ctx context.Context, logger zap.Logger) (OAuthManager, error) {
+func (oAuthManager OAuthManager) InitOAuthManager(ctx context.Context, logger zap.Logger, clientId string, clientSecret string) (OAuthManager, error) {
 	appBase := viper.GetString("app.server.base")
-	clientId := viper.GetString("oauth2.clientId")
-	clientSecret := viper.GetString("oauth2.clientSecret")
 	appContext := viper.GetString("app.server.context")
 	appPort := viper.GetString("app.server.port")
 	oauthCallBackUri := "/" + appContext + "/oauth2/callback"

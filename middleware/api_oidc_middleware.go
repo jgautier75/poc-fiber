@@ -20,7 +20,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRedirectUri string, store *session.Store) fiber.Handler {
+func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRedirectUri string, store *session.Store, clientId string, clientSecret string) fiber.Handler {
 	return func(c *fiber.Ctx) (err error) {
 		p := c.Path()
 		if strings.HasPrefix(p, apiBaseUri) {
@@ -36,7 +36,7 @@ func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRed
 				defer httpSession.Save()
 				tkn := httpSession.Get(commons.SESSION_ATTR_TOKEN)
 				if tkn != nil {
-					tokenData, errFetch := fetchNewToken(oauthmgr.Provider, tkn.(oauth2.Token).RefreshToken, renewRedirectUri, viper.GetString("oauth2.clientId"), viper.GetString("oauth2.clientSecret"))
+					tokenData, errFetch := fetchNewToken(oauthmgr.Provider, tkn.(oauth2.Token).RefreshToken, renewRedirectUri, clientId, clientSecret)
 					if errFetch != nil {
 						return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToInternalError(errFetch))
 					}
