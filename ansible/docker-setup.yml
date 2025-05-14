@@ -9,17 +9,17 @@
     - name: "Configuration: facts"
       ansible.builtin.debug:
         var: ansible_facts
-      #when: 0 > 1
+      when: 0 > 1
     - name: "Configuration: postgreSQL connection strung (for debugging purpose only)"
-      #when: 0 > 1
+      when: 0 > 1
       ansible.builtin.debug:
         msg: "pgUrl: {{ pgUrl }}"
     - name: "Configuration: Display OIDC clientId (for debugging purpose only)"
-      #when: 0 > 1
+      when: 0 > 1
       ansible.builtin.debug:
         msg: "clientId: {{ clientId }}"
     - name: "Configuration: Display OIDC clientSecret (for debugging purpose only)"
-      #when: 0 > 1
+      when: 0 > 1
       ansible.builtin.debug:
         msg: "clientSecret: {{ clientSecret }}"
     - name: "Configuration: Get ipv4 address"
