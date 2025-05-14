@@ -70,7 +70,6 @@ func main() {
 		panic(fmt.Errorf("unable to read secret: %v", err))
 	}
 	vaultData := secret.Data
-	//var test = data["pgUrl"]
 
 	// Generate certificates
 	certificates.GenerateSelfSignedCerts(logger)
@@ -92,7 +91,7 @@ func main() {
 
 	// Opentelemetry
 	logger.Info("OpenTelemetry > Setup")
-	otelShutdownFuncs, errOtel := opentelemetry.Setup(context.Background())
+	otelShutdownFuncs, otmMetrics, errOtel := opentelemetry.Setup(context.Background())
 	if errOtel != nil {
 		panic(fmt.Errorf("error setting up opentelemetry [%w]", errOtel))
 	}
@@ -144,6 +143,7 @@ func main() {
 
 	logger.Info("Middleware -> Setup")
 	app.Use(middleware.InitOidcMiddleware(authMgr, fullApiUri, versionsApi, store, clientId, clientSecret))
+	app.Use(middleware.HttpMiddleWareStats(otmMetrics))
 
 	logger.Info("Endpoints -> Setup")
 	app.Get("/"+appContext+"/home", endpoints.MakeIndex(authMgr.OAuthConfig, store))

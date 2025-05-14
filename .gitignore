@@ -57,3 +57,4 @@ docker/container/prometheus/wal/00000022
 docker/container/prometheus/wal/00000023
 docker/container/prometheus/wal/checkpoint.00000020/00000000
 docker/container/prometheus/wbl/00000023
+docker/openbao_unseal_key.txt

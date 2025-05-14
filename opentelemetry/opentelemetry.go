@@ -12,9 +12,12 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/log/global"
+	otm "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
+
+	//"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.30.0"
@@ -22,11 +25,16 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func Setup(ctx context.Context) (shutdownFn []func(context.Context) error, err error) {
+type OtelMetrics struct {
+	TotalReqCounter otm.Int64UpDownCounter
+}
+
+func Setup(ctx context.Context) (shutdownFn []func(context.Context) error, otelMetrics *OtelMetrics, err error) {
 
 	var otelServiceName = semconv.ServiceNameKey.String(viper.GetString("app.name"))
 	var otelServiceVersion = semconv.ServiceVersionKey.String(viper.GetString("app.version"))
 	var grpcEndpoint = viper.GetString("otel.endpoint")
+	var otmMetrics = OtelMetrics{}
 
 	otelResource, errResource := resource.New(context.Background(),
 		resource.WithAttributes(
@@ -55,14 +63,14 @@ func Setup(ctx context.Context) (shutdownFn []func(context.Context) error, err e
 
 	grpcCnx, errGrpc := initGrpcConn(grpcEndpoint)
 	if errGrpc != nil {
-		return nil, errGrpc
+		return nil, &otmMetrics, errGrpc
 	}
 
 	// Logger provider
 	loggerProvider, err := initLoggerProvider(ctx, otelResource, grpcCnx)
 	if err != nil {
 		handleErr(err)
-		return shutdownFuncs, err
+		return shutdownFuncs, &otmMetrics, err
 	}
 	global.SetLoggerProvider(loggerProvider)
 	shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
@@ -71,7 +79,7 @@ func Setup(ctx context.Context) (shutdownFn []func(context.Context) error, err e
 	tracerProvider, err := initTracerProvider(ctx, otelResource, grpcCnx)
 	if err != nil {
 		handleErr(err)
-		return shutdownFuncs, err
+		return shutdownFuncs, &otmMetrics, err
 	}
 	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
 
@@ -79,10 +87,21 @@ func Setup(ctx context.Context) (shutdownFn []func(context.Context) error, err e
 	meterProvider, errMeter := initMeterProvider(ctx, otelResource, grpcCnx)
 	if errMeter != nil {
 		handleErr(errMeter)
-		return shutdownFuncs, err
+		return shutdownFuncs, &otmMetrics, err
 	}
+	otel.SetMeterProvider(meterProvider)
+	meter := meterProvider.Meter(viper.GetString("app.name") + "/metrics")
+	totalCounter, errCount := meter.Int64UpDownCounter("http.server.requests.total", otm.WithUnit("1"), otm.WithDescription("total number of HTTP requests"))
+
+	if errCount != nil {
+		handleErr(errMeter)
+		return shutdownFuncs, &otmMetrics, errMeter
+	}
+
+	otmMetrics.TotalReqCounter = totalCounter
+
 	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
-	return shutdownFuncs, nil
+	return shutdownFuncs, &otmMetrics, nil
 }
 
 func initLoggerProvider(ctx context.Context, res *resource.Resource, conn *grpc.ClientConn) (*log.LoggerProvider, error) {
@@ -131,7 +150,7 @@ func initMeterProvider(ctx context.Context, res *resource.Resource, conn *grpc.C
 		metric.WithResource(res),
 		metric.WithReader(metric.NewPeriodicReader(metricExporter,
 			// Default is 1m. Set to 3s for demonstrative purposes.
-			metric.WithInterval(5*time.Second))),
+			metric.WithInterval(3*time.Second))),
 	)
 	return meterProvider, nil
 }
