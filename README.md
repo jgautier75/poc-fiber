@@ -10,7 +10,7 @@ go mod edit -go=1.24.2
 
 ## Application
 
-Application relies on fiber (expressjs like written in go), postgreSQL for persistance, 
+Application relies on fiber (expressjs like written in go), postgreSQL for persistance, authentik as OIDC provider, grafana stack for monitoring (tempo & loki)
 
 https://localhost:8101/poc-fiber/home
 
@@ -20,13 +20,13 @@ Once authenticated, open [Bruno](https://www.usebruno.com/)  collection (docs di
 
 | Service             | Version | Port           | Description                                                                 |
 |---------------------|---------|----------------|-----------------------------------------------------------------------------|
-| mailpit             | 1.24    | 1025 & 8025    | Smtp mock server (smtp: 1025, 8025 for web app)Spring app storage           |
-| postgreSQL          | 17.4    | 5432           | Application storage                                                         |
-| postgreSQL          | 17.4    | 5433           | Authentik storage                                                           |
-| redis               | alpine  | 66379          |                                                                             |
+| mailpit             | 1.24    | 1025 & 8025    | Smtp mock server (smtp: 1025, 8025 for web app)                             |
+| postgreSQL          | 17.5    | 5432           | Application storage                                                         |
+| postgreSQL          | 17.5    | 5433           | Authentik storage                                                           |
+| redis               | alpine  | 66379          |  Fiber storage backend                                                      |
 | authentik           | 2025.4.0| 9000           | Authentik server oidc provider                                              | 
 | authentik           | 2025.4.0| -              | Authentik worker (scheduled tasks)                                          |
-
+| openbao             | 2.2.1   | -              | Secrets vault                                                               |
 
 Telemetry stack relies on grafana (loki & tempo)
 

@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	PG_VERSION     = "postgres:17.4"
+	PG_VERSION     = "postgres:17.5"
 	PG_PORT        = "5432/tcp"
 	PG_DB          = "testdb"
 	PG_USER        = "postgres"

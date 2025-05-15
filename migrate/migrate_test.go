@@ -31,7 +31,7 @@ func TestOrganizationDao(t *testing.T) {
 
 	// Init postgreSQL container with testcontainers
 	containerReq := testcontainers.ContainerRequest{
-		Image:        "postgres:17.4",
+		Image:        "postgres:17.5",
 		ExposedPorts: []string{"5432/tcp"},
 		WaitingFor:   wait.ForListeningPort("5432/tcp"),
 		Env: map[string]string{
