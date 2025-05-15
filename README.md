@@ -93,6 +93,8 @@ WARNING: You will be prompted for a new password, ensure to remind it
 ansible-vault encrypt secrets_file.enc
 ```
 
-Once, to initialize OpenBao
+Run the following script to add secrets in OpenBao vault (password: test):
 
+```bash
 ansible-playbook -i inventory/hosts.ini docker-setup.yml --connection=local --ask-vault-pass
+```
