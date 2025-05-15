@@ -10,7 +10,7 @@ go mod edit -go=1.24.2
 
 ## Application
 
-Application relies on fiber (expressjs like written in go), postgreSQL for persistance, authentik as OIDC provider, grafana stack for monitoring (tempo & loki)
+Application relies on fiber (expressjs like written in go), postgreSQL for persistance, authentik as OIDC provider, grafana stack for monitoring (tempo & loki) and OpenBao for secrets management
 
 https://localhost:8101/poc-fiber/home
 
@@ -30,7 +30,7 @@ Once authenticated, open [Bruno](https://www.usebruno.com/)  collection (docs di
 
 Telemetry stack relies on grafana (loki & tempo)
 
-To start telemetry stack, execut docker/run _lgtm.sh script
+To start telemetry stack, execute docker/run _lgtm.sh script
 Once started, open [grafana](http://localhost:3000)
 
 ## Authentik
@@ -73,6 +73,26 @@ Example: To override the "app.name" configuration in config.yml file, provider a
 
 # Ansible 
 
+Encrypting secrets using ansible vault.
+
+Create a text file named secrets_file.enc and add secrets using key: value format
+
+Example:
+
+```
+pgUrl: postgres://myuser:mypass@localhost:5432/poc-fiber?sslmode=disable
+clientId: blihblih
+clientSecret: blahblah
+```
+
+Use ansible-vault command to encrypt file.
+
+WARNING: You will be prompted for a new password, ensure to remind it
+
+```bash
 ansible-vault encrypt secrets_file.enc
+```
+
+Once, to initialize OpenBao
 
 ansible-playbook -i inventory/hosts.ini docker-setup.yml --connection=local --ask-vault-pass
