@@ -48,8 +48,8 @@ func TestOrganizationDao(t *testing.T) {
 		panic(poolErr)
 	}
 
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
+	viper.SetConfigName("sql")
+	viper.SetConfigType("yml")
 	viper.AddConfigPath("../config")
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
