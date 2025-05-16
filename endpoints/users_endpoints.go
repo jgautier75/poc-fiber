@@ -63,7 +63,7 @@ func MakeUsersList(userService services.UserService) func(ctx *fiber.Ctx) error 
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
 
-		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "USER-LIST-API")
+		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-USER-LIST")
 		defer span.End()
 
 		userListResponse, errList := userService.FindAllUsers(tenantUuid, orgUuid, c)
@@ -89,7 +89,7 @@ func MakeUsersDelete(userService services.UserService) func(ctx *fiber.Ctx) erro
 		orgUuid := ctx.Params("organizationUuid")
 		userUuid := ctx.Params("userUuid")
 
-		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "USER-DELETE-API")
+		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-USER-DELETE")
 		defer span.End()
 
 		userExists, errExists := userService.DeleteUser(tenantUuid, orgUuid, userUuid, c)
@@ -124,7 +124,7 @@ func MakeUsersFilter(userService services.UserService) func(ctx *fiber.Ctx) erro
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
 
-		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "USER-FILTER-API")
+		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-USER-FILTER")
 		defer span.End()
 
 		searchFilter := ctx.Query("filter")

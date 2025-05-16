@@ -26,7 +26,7 @@ func NewSectorDao(pool *pgxpool.Pool) SectorDao {
 }
 
 func (sectorDao *SectorDao) CreateSector(sector model.Sector, parentContext context.Context) (model.CompositeId, error) {
-	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "FUNC-SECTOR-CREATE")
+	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-SECTOR-CREATE")
 	defer span.End()
 
 	insertStmt := viper.GetStringMapString(CONFIG_SECTORS)["create"]
@@ -41,7 +41,7 @@ func (sectorDao *SectorDao) CreateSector(sector model.Sector, parentContext cont
 }
 
 func (s SectorDao) WithTxCreateSector(tx pgx.Tx, sector model.Sector, parentContext context.Context) (model.CompositeId, error) {
-	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "FUNC-SECTOR-CREATE_WITH_TX")
+	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-SECTOR-CREATE_WITH_TX")
 	defer span.End()
 
 	insertStmt := viper.GetStringMapString(CONFIG_SECTORS)["create"]
@@ -56,7 +56,7 @@ func (s SectorDao) WithTxCreateSector(tx pgx.Tx, sector model.Sector, parentCont
 }
 
 func (s SectorDao) FindAllByTenantAndOrganization(tenantId int64, organizationId int64, parentContext context.Context) ([]model.Sector, error) {
-	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "FUNC-SECTOR-FIND_ALL_FOR_ORG")
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-SECTOR-FIND_ALL_FOR_ORG")
 	defer span.End()
 
 	selStmt := viper.GetStringMapString(CONFIG_SECTORS)["findbytenantorg"]
@@ -77,7 +77,7 @@ func (s SectorDao) FindAllByTenantAndOrganization(tenantId int64, organizationId
 func (s SectorDao) FindByUuid(uuid string, parentContext context.Context) (model.Sector, error) {
 	var nilSector model.Sector
 
-	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "FUNC-SECTOR-FIND_BY_UUID")
+	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-SECTOR-FIND_BY_UUID")
 	defer span.End()
 
 	selStmt := viper.GetStringMapString(CONFIG_SECTORS)["findbyuuid"]

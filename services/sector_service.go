@@ -34,7 +34,7 @@ func NewSectorService(tenantFunctions functions.TenantFunctions, orgsFunctions f
 func (sectorService *SectorService) FindSectorsByTenantAndOrganization(tenantUuid string, organizationUuid string, parentContext context.Context) (dtos.SectorResponseList, error) {
 	var sectorsList = dtos.SectorResponseList{}
 
-	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "SECTOR-FIND-SERVICE")
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "SERVICE-SECTOR-FIND")
 	defer span.End()
 
 	// Ensure tenant exists
@@ -80,7 +80,7 @@ func (sectorService *SectorService) CreateSector(tenantUuid string, orgUuid stri
 	var nilComposite model.CompositeId
 	var nilSector model.Sector
 
-	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "SECTOR-CREATE-SERVICE")
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "SERVICE-SECTOR-CREATE")
 	defer span.End()
 
 	// Ensure tenant exists

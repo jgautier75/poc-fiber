@@ -128,7 +128,7 @@ func (udao UserDao) ExistsByUuid(tenantId int64, orgId int64, userUuid string, p
 }
 
 func (udao UserDao) FindAllByTenantAndOrganization(tenantId int64, orgId int64, parentContext context.Context) ([]model.User, error) {
-	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-LIST-DAO")
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-USER-LIST")
 	defer span.End()
 
 	selStmt := viper.GetStringMapString(CONFIG_USERS)["findallbytenantandorg"]
@@ -148,7 +148,7 @@ func (udao UserDao) FindAllByTenantAndOrganization(tenantId int64, orgId int64, 
 }
 
 func (udao UserDao) FilterUsers(tenantId int64, orgId int64, expressions []parser.SearchExpression, pagination model.Pagination, parentContext context.Context) (int, []model.User, error) {
-	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-FILTER-DAO")
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-USER-FILTER")
 	defer span.End()
 
 	// Count number of results based on search expressions

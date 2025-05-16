@@ -36,7 +36,7 @@ func NewUserService(tenantFunctions functions.TenantFunctions, orgsFunctions fun
 func (userService UserService) CreateUser(tenantUuid string, orgUuid string, createUserReq dtos.CreateUserRequest, parentContext context.Context) (model.CompositeId, error) {
 	var nilComposite model.CompositeId
 
-	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-CREATE-SERVICE")
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "SERVICE-USER-CREATE")
 	defer span.End()
 
 	// Ensure tenant exists
@@ -89,7 +89,7 @@ func (userService UserService) CreateUser(tenantUuid string, orgUuid string, cre
 func (userService UserService) FindAllUsers(tenantUuid string, orgUuid string, parentContext context.Context) (dtos.UserListResponse, error) {
 	var usersList = dtos.UserListResponse{}
 
-	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-LIST-SERVICE")
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "SERVICE-USER-LIST")
 	defer span.End()
 	logger.LogRecord(c, LOGGER_NAME, "find all users for tenant ["+tenantUuid+"] and org ["+orgUuid+"]")
 
@@ -121,7 +121,7 @@ func (userService UserService) FindAllUsers(tenantUuid string, orgUuid string, p
 func (userService UserService) FilterUsers(tenantUuid string, orgUuid string, expressions []parser.SearchExpression, pagination model.Pagination, parentContext context.Context) (dtos.UserListResponse, error) {
 	var usersList = dtos.UserListResponse{}
 
-	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-FILTER-SERVICE")
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "SERVICE-USER-FILTER")
 	defer span.End()
 	logger.LogRecord(c, LOGGER_NAME, "filter users for tenant ["+tenantUuid+"] and org ["+orgUuid+"]")
 
@@ -155,7 +155,7 @@ func (userService UserService) FilterUsers(tenantUuid string, orgUuid string, ex
 
 func (userService UserService) DeleteUser(tenantUuid string, orgUuid string, userUuid string, parentContext context.Context) (bool, error) {
 
-	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "USER-DELETE-SERVICE")
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "SERVICE-USER-DELETE")
 	defer span.End()
 
 	// Ensure tenant exists
