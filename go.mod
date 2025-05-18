@@ -121,7 +121,7 @@ require (
 	github.com/gofiber/storage/redis v1.3.4
 	github.com/gofiber/template/html/v2 v2.1.3
 	github.com/golang-migrate/migrate/v4 v4.18.3
-	github.com/jackc/pgx/v5 v5.7.4
+	github.com/jackc/pgx/v5 v5.7.5
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/sagikazarmark/locafero v0.9.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
