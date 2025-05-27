@@ -47,7 +47,7 @@
       when:
         - response.status != 200 and response.status != 204
         - not (response.status == 400 and response.json.errors is search("path is already in use"))
-    - name: "OpenBao - Cipher key"
+    - name: "OpenBao - Store secrets"
       ansible.builtin.uri:
         url: "http://{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}:8200/v1/{{ hostvars[inventory_hostname]['openbao_secrets_path'] }}/data/{{ hostvars[inventory_hostname]['openbao_secrets_creds'] }}"
         method: PUT
@@ -57,6 +57,9 @@
         headers:
           X-Vault-Token: "{{ hostvars[inventory_hostname]['openbao_token'] }}"
       register: response
+    - name: "OpenBao - Response"
+      ansible.builtin.debug:
+        msg: "response: {{ response }}"
     - name: "OpenBao - Cipher Key - Fail if not 200 or 400 with error 'check-and-set parameter did not match the current version'"
       fail:
         msg: "Request failed with status code {{ response.status }} and message: {{ response.msg }}"
