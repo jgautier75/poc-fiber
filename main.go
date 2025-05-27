@@ -76,7 +76,10 @@ func main() {
 
 	// Perform SQL Migration
 	pgUrl := vaultData["pgUrl"].(string)
-	migrate.PerformMigration(logger, pgUrl, "migrate/files")
+	errMig := migrate.PerformMigration(logger, pgUrl, "migrate/files")
+	if errMig != nil {
+		panic(errMig)
+	}
 
 	//Setup rdbms connection pool
 	dbPool, poolErr := infrastructure.SetupCnxPool(pgUrl, viper.GetInt32("app.pgPoolMin"), viper.GetInt32("app.pgPoolMax"), logger)
