@@ -77,7 +77,7 @@ func main() {
 	// Perform SQL Migration
 	pgUrl := vaultData["pgUrl"].(string)
 	errMig := migrate.PerformMigration(logger, pgUrl, "migrate/files")
-	if errMig != nil {
+	if errMig != nil && errMig.Error() != "no change" {
 		panic(errMig)
 	}
 
