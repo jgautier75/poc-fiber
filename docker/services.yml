@@ -1,7 +1,7 @@
 version: "3.1"
 services:
   mailpit:
-    image: axllent/mailpit:v1.24
+    image: axllent/mailpit:v1.25.1
     ports:
       - "8025:8025"
       - "1025:1025"
@@ -103,7 +103,7 @@ services:
       redis:
         condition: service_healthy
   openbao:
-    image: quay.io/openbao/openbao:2.2.1
+    image: quay.io/openbao/openbao:2.2.2
     environment:
       BAO_DEV_ROOT_TOKEN_ID: dev-root-token
       OPENBAO_SKIP_VERIFY: "true"

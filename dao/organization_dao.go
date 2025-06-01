@@ -98,6 +98,9 @@ func (orgDao *OrganizationDao) FindByTenantAndUuid(tenantId int64, orgUuid strin
 	defer rows.Close()
 	org, errCollect := pgx.CollectOneRow(rows, pgx.RowToStructByName[model.Organization])
 	if errCollect != nil {
+		if errCollect.Error() == "no rows in result set" {
+			return nilOrg, nil
+		}
 		return nilOrg, errCollect
 	}
 	return org, nil
