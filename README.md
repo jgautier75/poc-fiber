@@ -98,3 +98,11 @@ Run the following script to add secrets in OpenBao vault (password: test):
 ```bash
 ansible-playbook -i inventory/hosts.ini docker-setup.yml --connection=local --ask-vault-pass
 ```
+
+OpenBao web interface is by default accessible at the following url: http://localhost:8200/ui/vault/auth?with=token
+
+![](docs/images/openbao_ui_home.png)
+
+Then you can browse secrets engines
+
+![](docs/images/openbao_ui_engines.png)
