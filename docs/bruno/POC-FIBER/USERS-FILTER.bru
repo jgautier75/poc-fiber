@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{httpScheme}}://{{httpHost}}/{{apiBaseUri}}/tenants/da8940d0-6df5-47c3-9059-29a6ce64083c/organizations/0969da6d-1478-434e-9b1d-185675926b05/users/filter?page=1&rowsPerPage=10&sort=-last_name
+  url: {{httpScheme}}://{{httpHost}}/{{apiBaseUri}}/tenants/da8940d0-6df5-47c3-9059-29a6ce64083c/organizations/5e409370-afdd-4be8-b6e9-68d9a24c4d26/users/filter?page=1&rowsPerPage=10&sort=-last_name&filter=last_name eq 'HOPPER'
   body: none
   auth: bearer
 }
@@ -14,7 +14,7 @@ params:query {
   page: 1
   rowsPerPage: 10
   sort: -last_name
-  ~filter: last_name eq 'HOPPER'
+  filter: last_name eq 'HOPPER'
 }
 
 auth:bearer {
