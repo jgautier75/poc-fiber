@@ -220,27 +220,28 @@ func BuildQueryFromExpressions(baseQuery string, expressions []parser.SearchExpr
 	inc++
 
 	for _, expr := range expressions {
-		if expr.Type == parser.OpeningParenthesis {
+		switch expr.Type {
+		case parser.OpeningParenthesis:
 			builder.Write([]byte(" ( "))
-		} else if expr.Type == parser.ClosingParenthesis {
+		case parser.ClosingParenthesis:
 			builder.Write([]byte(" ) "))
-		} else if expr.Type == parser.Comparison {
+		case parser.Comparison:
 			sqlOp, errComp := convertComparisonExpressionToSql(expr.TextValue)
 			if errComp != nil {
 				return "", errComp, values
 			}
 			builder.Write([]byte(sqlOp))
-		} else if expr.Type == parser.Negation {
+		case parser.Negation:
 			builder.Write([]byte(" not "))
-		} else if expr.Type == parser.Property {
+		case parser.Property:
 			ppty := strings.ReplaceAll(expr.TextValue, "'", "")
 			builder.Write([]byte(ppty))
-		} else if expr.Type == parser.Value {
+		case parser.Value:
 			paramIndex := "$" + strconv.Itoa(inc)
 			inc++
-			values = append(values, strings.Trim(expr.TextValue, "'"))
+			values = append(values, strings.ReplaceAll(strings.Trim(expr.TextValue, "'"), "*", "%"))
 			builder.Write([]byte(paramIndex))
-		} else if expr.Type == parser.Operator {
+		case parser.Operator:
 			builder.Write([]byte(expr.TextValue))
 		}
 	}
@@ -248,19 +249,20 @@ func BuildQueryFromExpressions(baseQuery string, expressions []parser.SearchExpr
 }
 
 func convertComparisonExpressionToSql(exprOperator string) (string, error) {
-	if exprOperator == "gt" {
+	switch exprOperator {
+	case "gt":
 		return ">", nil
-	} else if exprOperator == "ge" {
+	case "ge":
 		return ">=", nil
-	} else if exprOperator == "lt" {
+	case "lt":
 		return "<", nil
-	} else if exprOperator == "le" {
+	case "le":
 		return "<=", nil
-	} else if exprOperator == "eq" {
+	case "eq":
 		return "=", nil
-	} else if exprOperator == "ne" {
+	case "ne":
 		return "!=", nil
-	} else if exprOperator == "lk" {
+	case "lk":
 		return " like ", nil
 	}
 	return "", errors.New("invalid comparison [" + exprOperator + "]")
