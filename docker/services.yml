@@ -103,7 +103,7 @@ services:
       redis:
         condition: service_healthy
   openbao:
-    image: quay.io/openbao/openbao:2.3.1
+    image: quay.io/openbao/openbao:2.3.2
     environment:
       BAO_DEV_ROOT_TOKEN_ID: dev-root-token
       OPENBAO_SKIP_VERIFY: "true"
