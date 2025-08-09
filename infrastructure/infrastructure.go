@@ -13,8 +13,8 @@ func SetupCnxPool(pgUrl string, minConns int32, maxConns int32, zapLogger zap.Lo
 	if errDbCfg != nil {
 		panic(errDbCfg)
 	}
-	dbConfig.MinConns = int32(minConns)
-	dbConfig.MaxConns = int32(maxConns)
+	dbConfig.MinConns = minConns
+	dbConfig.MaxConns = maxConns
 	zapLogger.Info("Connection Pool -> Initialize pool")
 	return pgxpool.NewWithConfig(context.Background(), dbConfig)
 }

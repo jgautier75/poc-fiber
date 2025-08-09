@@ -25,7 +25,7 @@ func NewSectorDao(pool *pgxpool.Pool) SectorDao {
 	return sectorDao
 }
 
-func (sectorDao *SectorDao) CreateSector(sector model.Sector, parentContext context.Context) (model.CompositeId, error) {
+func (sectorDao SectorDao) CreateSector(sector model.Sector, parentContext context.Context) (model.CompositeId, error) {
 	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-SECTOR-CREATE")
 	defer span.End()
 
@@ -40,7 +40,7 @@ func (sectorDao *SectorDao) CreateSector(sector model.Sector, parentContext cont
 	return compId, errQuery
 }
 
-func (s SectorDao) WithTxCreateSector(tx pgx.Tx, sector model.Sector, parentContext context.Context) (model.CompositeId, error) {
+func (sectorDao SectorDao) WithTxCreateSector(tx pgx.Tx, sector model.Sector, parentContext context.Context) (model.CompositeId, error) {
 	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-SECTOR-CREATE_WITH_TX")
 	defer span.End()
 
@@ -55,12 +55,12 @@ func (s SectorDao) WithTxCreateSector(tx pgx.Tx, sector model.Sector, parentCont
 	return compId, errQuery
 }
 
-func (s SectorDao) FindAllByTenantAndOrganization(tenantId int64, organizationId int64, parentContext context.Context) ([]model.Sector, error) {
+func (sectorDao SectorDao) FindAllByTenantAndOrganization(tenantId int64, organizationId int64, parentContext context.Context) ([]model.Sector, error) {
 	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-SECTOR-FIND_ALL_FOR_ORG")
 	defer span.End()
 
 	selStmt := viper.GetStringMapString(CONFIG_SECTORS)["findbytenantorg"]
-	rows, e := s.DbPool.Query(context.Background(), selStmt, tenantId, organizationId)
+	rows, e := sectorDao.DbPool.Query(context.Background(), selStmt, tenantId, organizationId)
 	if e != nil {
 		return nil, e
 	}
@@ -74,14 +74,14 @@ func (s SectorDao) FindAllByTenantAndOrganization(tenantId int64, organizationId
 	return sectors, nil
 }
 
-func (s SectorDao) FindByUuid(uuid string, parentContext context.Context) (model.Sector, error) {
+func (sectorDao SectorDao) FindByUuid(uuid string, parentContext context.Context) (model.Sector, error) {
 	var nilSector model.Sector
 
 	_, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "DAO-SECTOR-FIND_BY_UUID")
 	defer span.End()
 
 	selStmt := viper.GetStringMapString(CONFIG_SECTORS)["findbyuuid"]
-	rows, e := s.DbPool.Query(context.Background(), selStmt, uuid)
+	rows, e := sectorDao.DbPool.Query(context.Background(), selStmt, uuid)
 	if e != nil {
 		return nilSector, e
 	}

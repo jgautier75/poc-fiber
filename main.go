@@ -139,7 +139,7 @@ func main() {
 	// Fetch OIDC .well-known url
 	logger.Info("OIDC -> Fetch .well-known url [" + viper.GetString("oauth2.issuer") + "]")
 	fOAuth := oauth.NewOAuthManager()
-	authMgr, errFetch := fOAuth.InitOAuthManager(context.Background(), logger, clientId, clientSecret)
+	authMgr, errFetch := fOAuth.InitOAuthManager(logger, clientId, clientSecret)
 	if errFetch != nil {
 		panic(fmt.Errorf("error fetching .well-known issuer: [%w]", errFetch))
 	}

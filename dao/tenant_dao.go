@@ -22,7 +22,7 @@ func NewTenantDao(pool *pgxpool.Pool) TenantDao {
 	return tenantDao
 }
 
-func (tenantDao *TenantDao) FindByCode(code string, parentContext context.Context) (model.Tenant, error) {
+func (tenantDao TenantDao) FindByCode(code string, parentContext context.Context) (model.Tenant, error) {
 	var nilTenant model.Tenant
 
 	_, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "DAO-TENANT-FIND_BY_CODE")
@@ -41,7 +41,7 @@ func (tenantDao *TenantDao) FindByCode(code string, parentContext context.Contex
 	return tenant, nil
 }
 
-func (tenantDao *TenantDao) FindByUuid(uuid string, parentContext context.Context) (model.Tenant, error) {
+func (tenantDao TenantDao) FindByUuid(uuid string, parentContext context.Context) (model.Tenant, error) {
 	var nilTenant model.Tenant
 
 	_, span := otel.Tracer(OTEL_TRACER_NAME).Start(parentContext, "DAO-TENANT-FIND_BY_UUID")
