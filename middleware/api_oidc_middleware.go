@@ -8,7 +8,6 @@ import (
 	"poc-fiber/commons"
 	"poc-fiber/exceptions"
 	"poc-fiber/oauth"
-	"poc-fiber/security"
 	"strings"
 	"time"
 
@@ -40,7 +39,7 @@ func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRed
 					if errFetch != nil {
 						return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToInternalError(errFetch))
 					}
-					_, errStore := security.VerifyAndStoreToken(c, tokenData, httpSession, oauthmgr.Verifier)
+					_, errStore := oauth.VerifyAndStoreToken(c, tokenData, httpSession, oauthmgr.Verifier)
 					if errStore != nil {
 						return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errStore, fiber.StatusUnauthorized))
 					}

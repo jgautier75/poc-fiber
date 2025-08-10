@@ -30,7 +30,7 @@ func NewOrganizationsFunctions(organizationDao dao.OrganizationDao, logger zap.L
 func (of *OrganizationsFunctions) FindOrganization(tenantId int64, uuid string, parentContext context.Context) (model.Organization, error) {
 	var nilOrg model.Organization
 
-	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "ORG-FIND-FUNC")
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "FUNC-ORG-FIND")
 	defer span.End()
 	logger.LogRecord(c, LOGGER_NAME, "find organization ["+uuid+"]")
 	org, errFind := of.organizationDao.FindByTenantAndUuid(tenantId, uuid, c)

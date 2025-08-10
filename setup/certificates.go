@@ -1,4 +1,4 @@
-package certificates
+package setup
 
 import (
 	"crypto/ecdsa"

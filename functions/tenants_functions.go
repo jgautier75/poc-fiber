@@ -28,7 +28,7 @@ func NewTenantFunctions(tenantDao dao.TenantDao, logger zap.Logger) TenantFuncti
 func (tf *TenantFunctions) FindTenant(uuid string, parentContext context.Context) (model.Tenant, error) {
 	var nilTenant model.Tenant
 
-	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "TENANT-FIND-FUNC")
+	c, span := otel.Tracer(logger.OTEL_TRACER_NAME).Start(parentContext, "FUNC-TENANT-FIND")
 	defer span.End()
 
 	logger.LogRecord(c, "TenantsFunctions", "find tenant ["+uuid+"]")

@@ -6,17 +6,16 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"poc-fiber/certificates"
 	"poc-fiber/dao"
 	"poc-fiber/endpoints"
 	"poc-fiber/functions"
-	"poc-fiber/infrastructure"
 	"poc-fiber/logger"
 	"poc-fiber/middleware"
 	"poc-fiber/migrate"
 	"poc-fiber/oauth"
 	"poc-fiber/opentelemetry"
 	"poc-fiber/services"
+	"poc-fiber/setup"
 	"syscall"
 	"time"
 
@@ -72,7 +71,7 @@ func main() {
 	vaultData := secret.Data
 
 	// Generate certificates
-	certificates.GenerateSelfSignedCerts(logger)
+	setup.GenerateSelfSignedCerts(logger)
 
 	// Perform SQL Migration
 	pgUrl := vaultData["pgUrl"].(string)
@@ -82,7 +81,7 @@ func main() {
 	}
 
 	//Setup rdbms connection pool
-	dbPool, poolErr := infrastructure.SetupCnxPool(pgUrl, viper.GetInt32("app.pgPoolMin"), viper.GetInt32("app.pgPoolMax"), logger)
+	dbPool, poolErr := setup.SetupCnxPool(pgUrl, viper.GetInt32("app.pgPoolMin"), viper.GetInt32("app.pgPoolMax"), logger)
 	if poolErr != nil {
 		panic(poolErr)
 	}
@@ -127,12 +126,12 @@ func main() {
 
 	// Redis setup (session storage)
 	defCfg := session.ConfigDefault
-	redisStorage := endpoints.ConfigureRedisStorage(viper.GetString("redis.host"), viper.GetInt("redis.port"))
+	redisStorage := setup.ConfigureRedisStorage(viper.GetString("redis.host"), viper.GetInt("redis.port"))
 	defCfg.Storage = redisStorage
 	store := session.New(defCfg)
 
 	// Fiber endpoints
-	fConfig := endpoints.BuildFiberConfig(viper.GetString("app.name"))
+	fConfig := setup.BuildFiberConfig(viper.GetString("app.name"))
 	logger.Info("Application -> Setup")
 	app := fiber.New(fConfig)
 

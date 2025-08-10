@@ -3,23 +3,18 @@ package endpoints
 import (
 	"context"
 	"errors"
-	"net/url"
-	"poc-fiber/authentik"
-	"poc-fiber/commons"
-	"poc-fiber/exceptions"
-	"poc-fiber/model"
-	"poc-fiber/security"
-	"runtime"
-
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-playground/validator"
 	"github.com/go-resty/resty/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
-	"github.com/gofiber/storage/redis"
-	"github.com/gofiber/template/html/v2"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
+	"net/url"
+	"poc-fiber/commons"
+	"poc-fiber/exceptions"
+	"poc-fiber/model"
+	"poc-fiber/oauth"
 )
 
 const HEADER_STATE = "state"
@@ -37,7 +32,7 @@ func MakeIndex(oauthCfg *oauth2.Config, store *session.Store) func(ctx *fiber.Ct
 			return c.JSON(apiError)
 		}
 
-		state, errState := security.GenerateState(28)
+		state, errState := oauth.GenerateState(28)
 		if errState != nil {
 			apiError := exceptions.ConvertToInternalError(errSession)
 			c.SendStatus(fiber.StatusUnauthorized)
@@ -104,7 +99,7 @@ func MakeOAuthCallback(oauthCfg *oauth2.Config, store *session.Store, verifier *
 			ctx.SendStatus(fiber.StatusUnauthorized)
 			return ctx.JSON(apiError)
 		}
-		claims, errorVerify := security.VerifyAndStoreToken(ctx, *token, httpSession, verifier)
+		claims, errorVerify := oauth.VerifyAndStoreToken(ctx, *token, httpSession, verifier)
 		if errorVerify != nil {
 			apiError := exceptions.ConvertToInternalError(errorVerify)
 			ctx.SendStatus(fiber.StatusUnauthorized)
@@ -122,7 +117,7 @@ func MakeOAuthCallback(oauthCfg *oauth2.Config, store *session.Store, verifier *
 	}
 }
 
-func DeleteSession(clientId string, clientSecret string, store *session.Store, oauthCfg *authentik.OAuthEndpoints, logger zap.Logger) func(ctx *fiber.Ctx) error {
+func DeleteSession(clientId string, clientSecret string, store *session.Store, oauthCfg *oauth.OAuthEndpoints, logger zap.Logger) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		httpSession, errSession := store.Get(ctx)
 		if errSession != nil {
@@ -168,52 +163,4 @@ func logDeleteToken(response *resty.Response, errDelete error, logger zap.Logger
 		logger.Error("error deleting access token", zap.Error(errDelete))
 	}
 	logger.Info("response status", zap.String("response status", response.Status()))
-}
-
-func BuildFiberConfig(appName string) fiber.Config {
-	var defErrorHandler = func(c *fiber.Ctx, err error) error {
-		var e *fiber.Error
-		code := fiber.StatusInternalServerError
-		if errors.As(err, &e) {
-			code = e.Code
-			if code >= fiber.StatusBadRequest && code < fiber.StatusInternalServerError {
-				apiError := exceptions.ConvertToFunctionalError(err, code)
-				return c.Status(code).JSON(apiError)
-			} else {
-				apiError := exceptions.ConvertToInternalError(err)
-				return c.Status(code).JSON(apiError)
-			}
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(exceptions.ConvertToInternalError(err))
-	}
-
-	// load only the contents of the subfolder www
-	engine := html.New("./www", ".html")
-	engine.Delims("{{", "}}") // define delimiters to use in the templates
-
-	fConfig := fiber.Config{
-		AppName:           appName,
-		CaseSensitive:     true,
-		StrictRouting:     true,
-		EnablePrintRoutes: true,
-		UnescapePath:      true,
-		ErrorHandler:      defErrorHandler,
-		Views:             engine,
-	}
-	return fConfig
-}
-
-func ConfigureRedisStorage(redisHost string, redisPort int) *redis.Storage {
-	return redis.New(redis.Config{
-		Host:      redisHost,
-		Port:      redisPort,
-		Username:  "",
-		Password:  "",
-		URL:       "",
-		Database:  0,
-		Reset:     false,
-		TLSConfig: nil,
-		PoolSize:  10 * runtime.GOMAXPROCS(0),
-	},
-	)
 }
