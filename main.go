@@ -51,7 +51,10 @@ func main() {
 	viper.SetConfigName("sql")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./config")
-	viper.MergeInConfig()
+	errMerge := viper.MergeInConfig()
+	if errMerge != nil {
+		panic(errMerge)
+	}
 
 	logger := logger.ConfigureLogger(viper.GetString("app.logFile"), true, true)
 
