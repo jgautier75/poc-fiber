@@ -105,7 +105,7 @@ func (udao UserDao) ExistsByUuid(tenantId int64, orgId int64, userUuid string, p
 	defer span.End()
 
 	selStmt := viper.GetStringMapString(CONFIG_USERS)["existsbyuuid"]
-	rows, e := udao.DbPool.Query(context.Background(), selStmt, userUuid)
+	rows, e := udao.DbPool.Query(context.Background(), selStmt, tenantId, orgId, userUuid)
 	if e != nil {
 		return false, e
 	}
@@ -145,6 +145,21 @@ func (udao UserDao) FindAllByTenantAndOrganization(tenantId int64, orgId int64, 
 
 	logger.LogRecord(c, LOGGER_NAME, "nb of results ["+strconv.Itoa(len(users))+"]")
 	return users, nil
+}
+
+func (udao UserDao) FindByUuid(tenantId int64, orgId int64, uuid string) (model.User, error) {
+	var nilUser model.User
+
+	selStmt := viper.GetStringMapString(CONFIG_USERS)["findbyuuid"]
+
+	rows, e := udao.DbPool.Query(context.Background(), selStmt, tenantId, orgId, uuid)
+	if e != nil {
+		return nilUser, e
+	}
+	defer rows.Close()
+
+	user, errCollect := pgx.CollectOneRow(rows, pgx.RowToStructByName[model.User])
+	return user, errCollect
 }
 
 func (udao UserDao) FilterUsers(tenantId int64, orgId int64, expressions []parser.SearchExpression, pagination model.Pagination, parentContext context.Context) (int, []model.User, error) {

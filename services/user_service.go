@@ -175,5 +175,11 @@ func (userService UserService) DeleteUser(tenantUuid string, orgUuid string, use
 		return false, err
 	}
 
-	return userExists, nil
+	usr, errFind := userService.userDao.FindByUuid(tenant.Id, org.Id, userUuid)
+	if errFind != nil {
+		return false, errFind
+	}
+
+	errDelete := userService.userDao.DeleteUser(usr.Id)
+	return userExists, errDelete
 }

@@ -58,6 +58,25 @@ func MakeUserCreate(userService services.UserService) func(ctx *fiber.Ctx) error
 	}
 }
 
+func MakeUserDelete(userService services.UserService) func(ctx *fiber.Ctx) error {
+	return func(ctx *fiber.Ctx) error {
+		tenantUuid := ctx.Params("tenantUuid")
+		orgUuid := ctx.Params("organizationUuid")
+		userUuid := ctx.Params("userUuid")
+
+		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-USER-DELETE")
+		defer span.End()
+
+		deleted, errDelete := userService.DeleteUser(tenantUuid, orgUuid, userUuid, c)
+		if deleted == false && errDelete != nil {
+			apiErr := exceptions.ConvertToFunctionalError(errDelete, fiber.StatusBadRequest)
+			return ctx.JSON(apiErr)
+		}
+		ctx.SendStatus(fiber.StatusNoContent)
+		return nil
+	}
+}
+
 func MakeUsersList(userService services.UserService) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")

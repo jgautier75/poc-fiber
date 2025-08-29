@@ -21,3 +21,4 @@ sql:
     countByTenantAndOrg: "select count(1) from users where tenants_id=$1 and organizations_id=$2"
     existsByUuid: "select count(1) from users where tenants_id=$1 and organizations_id=$2 and uuid=$3"
     delete: "delete from users where id=$1"
+    findByUuid: "select id,tenants_id,organizations_id,uuid,last_name,first_name,login,email from users where tenants_id=$1 and organizations_id=$2 and uuid=$3"

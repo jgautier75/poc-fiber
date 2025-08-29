@@ -170,6 +170,7 @@ func main() {
 	app.Get(apiUsersPrefix, endpoints.MakeUsersList(userService))
 	app.Post(apiUsersPrefix, endpoints.MakeUserCreate(userService))
 	app.Get(apiUsersPrefix+"/filter", endpoints.MakeUsersFilter(userService))
+	app.Delete(apiUsersPrefix+"/:userUuid", endpoints.MakeUserDelete(userService))
 
 	go func() {
 		logger.Info("Application -> Listen TLS")
