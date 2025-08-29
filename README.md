@@ -18,20 +18,26 @@ Once authenticated, open [Bruno](https://www.usebruno.com/)  collection (docs di
 
 ## Docker & Telemetry Stack
 
-| Service             | Version | Port           | Description                                                                 |
-|---------------------|---------|----------------|-----------------------------------------------------------------------------|
-| mailpit             | 1.27.1    | 1025 & 8025    | Smtp mock server (smtp: 1025, 8025 for web app)                             |
-| postgreSQL          | 17.5    | 5432           | Application storage                                                         |
-| postgreSQL          | 17.5    | 5433           | Authentik storage                                                           |
-| redis               | alpine  | 66379          |  Fiber storage backend                                                      |
-| authentik           | 2025.6.3| 9000           | Authentik server oidc provider                                              | 
-| authentik           | 2025.6.3| -              | Authentik worker (scheduled tasks)                                          |
-| openbao             | 2.3.1   | -              | Secrets vault                                                               |
+| Service             | Version  | Port           | Description                                                                 |
+|---------------------|----------|----------------|-----------------------------------------------------------------------------|
+| mailpit             | 1.27.7   | 1025 & 8025    | Smtp mock server (smtp: 1025, 8025 for web app)                             |
+| postgreSQL          | 17.5     | 5432           | Application storage                                                         |
+| postgreSQL          | 17.5     | 5433           | Authentik storage                                                           |
+| redis               | alpine   | 66379          |  Fiber storage backend                                                      |
+| authentik           | 2025.8.1 | 9000           | Authentik server oidc provider                                              | 
+| authentik           | 2025.8.1 | -              | Authentik worker (scheduled tasks)                                          |
+| openbao             | 2.3.2    | -              | Secrets vault                                                               |
 
 Telemetry stack relies on grafana (loki & tempo)
 
 To start telemetry stack, execute docker/run _lgtm.sh script
 Once started, open [grafana](http://localhost:3000)
+
+Self-signed certificates are generated at startup:
+
+```bash
+openssl x509 -in cert.pem -text
+```
 
 ## Authentik
 
