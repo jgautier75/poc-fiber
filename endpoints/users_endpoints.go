@@ -67,10 +67,17 @@ func MakeUserDelete(userService services.UserService) func(ctx *fiber.Ctx) error
 		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-USER-DELETE")
 		defer span.End()
 
-		deleted, errDelete := userService.DeleteUser(tenantUuid, orgUuid, userUuid, c)
-		if deleted == false && errDelete != nil {
-			apiErr := exceptions.ConvertToFunctionalError(errDelete, fiber.StatusBadRequest)
-			return ctx.JSON(apiErr)
+		_, errDelete := userService.DeleteUser(tenantUuid, orgUuid, userUuid, c)
+		if errDelete != nil {
+			var targetHttpStatus = commons.GuessHttpStatus(errDelete)
+			_ = ctx.SendStatus(targetHttpStatus)
+			if commons.IsKnownFunctionalError(errDelete) {
+				apiErr := exceptions.ConvertToFunctionalError(errDelete, targetHttpStatus)
+				return ctx.JSON(apiErr)
+			} else {
+				apiErr := exceptions.ConvertToInternalError(errDelete)
+				return ctx.JSON(apiErr)
+			}
 		}
 		ctx.SendStatus(fiber.StatusNoContent)
 		return nil
