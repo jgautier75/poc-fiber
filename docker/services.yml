@@ -18,7 +18,7 @@ services:
     ports:
       - 5432:5432
   authentik-storage:
-    image: postgres:17.5
+    image: postgres:17.6
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
@@ -103,7 +103,7 @@ services:
       redis:
         condition: service_healthy
   openbao:
-    image: quay.io/openbao/openbao:2.3.2
+    image: quay.io/openbao/openbao:2.4.0
     environment:
       BAO_DEV_ROOT_TOKEN_ID: dev-root-token
       OPENBAO_SKIP_VERIFY: "true"
