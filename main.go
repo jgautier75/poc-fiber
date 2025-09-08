@@ -112,7 +112,7 @@ func main() {
 	var tenantDao = dao.NewTenantDao(dbPool)
 	var orgDao = dao.NewOrganizationDao(dbPool)
 	var sectorDao = dao.NewSectorDao(dbPool)
-	var userDao = dao.NewUserDaao(dbPool)
+	var userDao = dao.NewUserDao(dbPool)
 	var tenantFunctions = functions.NewTenantFunctions(tenantDao, logger)
 	var orgFunctions = functions.NewOrganizationsFunctions(orgDao, logger)
 

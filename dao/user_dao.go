@@ -26,7 +26,7 @@ type UserDao struct {
 	DbPool *pgxpool.Pool
 }
 
-func NewUserDaao(pool *pgxpool.Pool) UserDao {
+func NewUserDao(pool *pgxpool.Pool) UserDao {
 	userDao := UserDao{}
 	userDao.DbPool = pool
 	return userDao
