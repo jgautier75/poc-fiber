@@ -1,14 +1,14 @@
 version: "3.1"
 services:
   mailpit:
-    image: axllent/mailpit:v1.27.7
+    image: axllent/mailpit:${MAILPIT_VERSION:-v1.27.7}
     ports:
       - "8025:8025"
       - "1025:1025"
     volumes:
       - ./mailpit:/data
   fiber-storage:
-    image: postgres:17.5
+    image: postgres:${PG_VERSION:-17.6}
     volumes:
       - "pg_data:/var/lib/postgresql/data/pgdata"
     restart: always
@@ -18,11 +18,10 @@ services:
     ports:
       - 5432:5432
   authentik-storage:
-    image: postgres:17.6
+    image: postgres:${PG_VERSION:-17.6}
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
-      start_period: 20s
       interval: 30s
       retries: 5
       timeout: 5s
@@ -42,7 +41,6 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
-      start_period: 20s
       interval: 30s
       retries: 5
       timeout: 3s
@@ -103,7 +101,7 @@ services:
       redis:
         condition: service_healthy
   openbao:
-    image: quay.io/openbao/openbao:2.4.0
+    image: quay.io/openbao/openbao:${OPENBAO_VERSION:-2.4.0}
     environment:
       BAO_DEV_ROOT_TOKEN_ID: dev-root-token
       OPENBAO_SKIP_VERIFY: "true"
