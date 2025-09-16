@@ -39,7 +39,7 @@ func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRed
 					if errFetch != nil {
 						return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToInternalError(errFetch))
 					}
-					_, errStore := oauth.VerifyAndStoreToken(c, tokenData, httpSession, oauthmgr.Verifier)
+					_, errStore := oauth.VerifyAndStoreToken(tokenData, httpSession, oauthmgr.Verifier)
 					if errStore != nil {
 						return c.Status(fiber.StatusUnauthorized).JSON(exceptions.ConvertToFunctionalError(errStore, fiber.StatusUnauthorized))
 					}

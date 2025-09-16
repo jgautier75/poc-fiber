@@ -99,7 +99,7 @@ func MakeOAuthCallback(oauthCfg *oauth2.Config, store *session.Store, verifier *
 			ctx.SendStatus(fiber.StatusUnauthorized)
 			return ctx.JSON(apiError)
 		}
-		claims, errorVerify := oauth.VerifyAndStoreToken(ctx, *token, httpSession, verifier)
+		claims, errorVerify := oauth.VerifyAndStoreToken(*token, httpSession, verifier)
 		if errorVerify != nil {
 			apiError := exceptions.ConvertToInternalError(errorVerify)
 			ctx.SendStatus(fiber.StatusUnauthorized)

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-resty/resty/v2"
-	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -116,7 +115,7 @@ func FetchOAuthConfiguration(rootUrl string, logger zap.Logger) *OAuthEndpoints 
 	return oauthConfig
 }
 
-func VerifyAndStoreToken(ctx *fiber.Ctx, token oauth2.Token, httpSession *session.Session, verifier *oidc.IDTokenVerifier) (model.Claims, error) {
+func VerifyAndStoreToken(token oauth2.Token, httpSession *session.Session, verifier *oidc.IDTokenVerifier) (model.Claims, error) {
 	var claims model.Claims
 	idToken, errVerify := verifier.Verify(context.Background(), token.AccessToken)
 	if errVerify != nil {
@@ -127,11 +126,11 @@ func VerifyAndStoreToken(ctx *fiber.Ctx, token oauth2.Token, httpSession *sessio
 	if errClaims != nil {
 		return claims, errClaims
 	}
-	StoreToken(httpSession, ctx, token, claims)
+	StoreToken(httpSession, token, claims)
 	return claims, nil
 }
 
-func StoreToken(httpSession *session.Session, ctx *fiber.Ctx, token oauth2.Token, claims model.Claims) {
+func StoreToken(httpSession *session.Session, token oauth2.Token, claims model.Claims) {
 	httpSession.Set(commons.SESSION_ATTR_TOKEN, token)
 	httpSession.Set(commons.SESSION_ATTR_USERNAME, claims.PreferedUserName)
 }
