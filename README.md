@@ -21,19 +21,19 @@ Once authenticated, open [Bruno](https://www.usebruno.com/)  collection (docs di
 | Service             | Version  | Port           | Description                                                                 |
 |---------------------|----------|----------------|-----------------------------------------------------------------------------|
 | mailpit             | 1.27.7   | 1025 & 8025    | Smtp mock server (smtp: 1025, 8025 for web app)                             |
-| postgreSQL          | 17.5     | 5432           | Application storage                                                         |
-| postgreSQL          | 17.5     | 5433           | Authentik storage                                                           |
+| postgreSQL          | 17.6     | 5432           | Application storage                                                         |
+| postgreSQL          | 17.6     | 5433           | Authentik storage                                                           |
 | redis               | alpine   | 66379          |  Fiber storage backend                                                      |
 | authentik           | 2025.8.1 | 9000           | Authentik server oidc provider                                              | 
 | authentik           | 2025.8.1 | -              | Authentik worker (scheduled tasks)                                          |
-| openbao             | 2.3.2    | -              | Secrets vault                                                               |
+| openbao             | 2.4.0    | -              | Secrets vault                                                               |
 
 Telemetry stack relies on grafana (loki & tempo)
 
 To start telemetry stack, execute docker/run _lgtm.sh script
 Once started, open [grafana](http://localhost:3000)
 
-Self-signed certificates are generated at startup:
+Self-signed certificates are generated at startup, to display it's content:
 
 ```bash
 openssl x509 -in cert.pem -text
