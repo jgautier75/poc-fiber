@@ -8,6 +8,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 	"net/url"
@@ -127,7 +128,7 @@ func DeleteSession(clientId string, clientSecret string, store *session.Store, o
 		tkn := httpSession.Get(commons.SESSION_ATTR_TOKEN)
 		if tkn != nil {
 			client := resty.New()
-			client.SetDebug(true)
+			client.SetDebug(viper.GetBool("app.debug"))
 			client.SetCloseConnection(true)
 			// https://datatracker.ietf.org/doc/html/rfc7009
 

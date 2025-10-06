@@ -101,7 +101,7 @@ func (oAuthManager OAuthManager) InitOAuthManager(logger zap.Logger, clientId st
 func FetchOAuthConfiguration(rootUrl string, logger zap.Logger) *OAuthEndpoints {
 	var wellKnown = strings.TrimSuffix(rootUrl, "/") + "/.well-known/openid-configuration"
 	client := resty.New()
-	client.SetDebug(false)
+	client.SetDebug(viper.GetBool("app.debug"))
 	client.SetCloseConnection(true)
 	res, errGet := client.R().SetHeader("Cache-Control", "no-cache").Get(wellKnown)
 	if errGet != nil {

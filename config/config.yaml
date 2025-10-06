@@ -4,6 +4,7 @@ app:
   pgPoolMax: 5
   logFile: "poc-fiber.log"
   version: 1.0.0
+  debug: true
   server:
     base: https://localhost
     port: 8101 
@@ -21,4 +22,3 @@ redis:
   port: 6379    
 oauth2:
   issuer: "http://localhost:9000/application/o/poc-fiber/"
-

@@ -149,7 +149,7 @@ func fetchNewToken(provider *oidc.Provider, refreshToken string, redirectUri str
 	strBuffer.Write([]byte(redirectUri))
 
 	client := resty.New()
-	client.SetDebug(false)
+	client.SetDebug(viper.GetBool("app.debug"))
 	client.SetCloseConnection(true)
 
 	fullRedirectUri := strBuffer.String()
