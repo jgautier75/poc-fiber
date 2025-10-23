@@ -20,13 +20,13 @@ Once authenticated, open [Bruno](https://www.usebruno.com/)  collection (docs di
 
 | Service             | Version  | Port           | Description                                                                 |
 |---------------------|----------|----------------|-----------------------------------------------------------------------------|
-| mailpit             | 1.27.7   | 1025 & 8025    | Smtp mock server (smtp: 1025, 8025 for web app)                             |
+| mailpit             | 1.27.10  | 1025 & 8025    | Smtp mock server (smtp: 1025, 8025 for web app)                             |
 | postgreSQL          | 17.6     | 5432           | Application storage                                                         |
 | postgreSQL          | 17.6     | 5433           | Authentik storage                                                           |
 | redis               | alpine   | 66379          |  Fiber storage backend                                                      |
-| authentik           | 2025.8.1 | 9000           | Authentik server oidc provider                                              | 
-| authentik           | 2025.8.1 | -              | Authentik worker (scheduled tasks)                                          |
-| openbao             | 2.4.0    | -              | Secrets vault                                                               |
+| authentik           | 2025.8.4 | 9000           | Authentik server oidc provider                                              | 
+| authentik           | 2025.8.4 | -              | Authentik worker (scheduled tasks)                                          |
+| openbao             | 2.4.3    | -              | Secrets vault                                                               |
 
 Telemetry stack relies on grafana (loki & tempo)
 
