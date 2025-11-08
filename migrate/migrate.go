@@ -11,6 +11,7 @@ import (
 
 func PerformMigration(log zap.Logger, pgAdminUrl string, migrationFiles string) error {
 	db, errOpen := sql.Open("postgres", pgAdminUrl)
+	defer db.Close()
 	if errOpen != nil {
 		return errOpen
 	}
