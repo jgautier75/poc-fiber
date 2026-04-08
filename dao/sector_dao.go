@@ -30,12 +30,13 @@ func (sectorDao SectorDao) CreateSector(sector model.Sector, parentContext conte
 	defer span.End()
 
 	insertStmt := viper.GetStringMapString(CONFIG_SECTORS)["create"]
-	nuuid := uuid.New().String()
+	nuuid, _ := uuid.NewV7()
+	strUUID := nuuid.String()
 	var id int64
 	errQuery := sectorDao.DbPool.QueryRow(context.Background(), insertStmt, sector.TenantId, sector.OrganizationId, nuuid, sector.Code, sector.Label, sector.ParentId, sector.HasParent, sector.Depth).Scan(&id)
 	compId := model.CompositeId{
 		Id:   id,
-		Uuid: nuuid,
+		Uuid: strUUID,
 	}
 	return compId, errQuery
 }
@@ -45,12 +46,13 @@ func (sectorDao SectorDao) WithTxCreateSector(tx pgx.Tx, sector model.Sector, pa
 	defer span.End()
 
 	insertStmt := viper.GetStringMapString(CONFIG_SECTORS)["create"]
-	nuuid := uuid.New().String()
+	nuuid, _ := uuid.NewV7()
+	strUUID := nuuid.String()
 	var id int64
 	errQuery := tx.QueryRow(context.Background(), insertStmt, sector.TenantId, sector.OrganizationId, nuuid, sector.Code, sector.Label, sector.ParentId, sector.HasParent, sector.Depth).Scan(&id)
 	compId := model.CompositeId{
 		Id:   id,
-		Uuid: nuuid,
+		Uuid: strUUID,
 	}
 	return compId, errQuery
 }

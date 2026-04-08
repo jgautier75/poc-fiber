@@ -32,12 +32,13 @@ func (orgDao OrganizationDao) CreateOrganization(tenantId int64, code string, la
 	defer span.End()
 
 	insertStmt := viper.GetStringMapString(CONFIG_ORGS)["create"]
-	nuuid := uuid.New().String()
+	nuuid, _ := uuid.NewV7()
+	strUUID := nuuid.String()
 	var id int64
 	errQuery := orgDao.DbPool.QueryRow(context.Background(), insertStmt, tenantId, nuuid, code, label, otype).Scan(&id)
 	compId := model.CompositeId{
 		Id:   id,
-		Uuid: nuuid,
+		Uuid: strUUID,
 	}
 	return compId, errQuery
 }
@@ -47,12 +48,13 @@ func (orgDao OrganizationDao) WithTxCreateOrganization(tx pgx.Tx, tenantId int64
 	defer span.End()
 
 	insertStmt := viper.GetStringMapString(CONFIG_ORGS)["create"]
-	nuuid := uuid.New().String()
+	nuuid, _ := uuid.NewV7()
+	strUUID := nuuid.String()
 	var id int64
 	errQuery := tx.QueryRow(context.Background(), insertStmt, tenantId, nuuid, code, label, otype).Scan(&id)
 	compId := model.CompositeId{
 		Id:   id,
-		Uuid: nuuid,
+		Uuid: strUUID,
 	}
 	return compId, errQuery
 }

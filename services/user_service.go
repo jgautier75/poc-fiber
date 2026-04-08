@@ -69,11 +69,12 @@ func (userService UserService) CreateUser(tenantUuid string, orgUuid string, cre
 		return nilComposite, errors.New(commons.UserEmailAlreadyInUse)
 	}
 
-	nuuid := uuid.New().String()
+	nuuid, _ := uuid.NewV7()
+	strUUID := nuuid.String()
 	var user = model.User{
 		TenantId:       tenant.Id,
 		OrganizationId: org.Id,
-		Uuid:           nuuid,
+		Uuid:           strUUID,
 		FirstName:      *createUserReq.FirstName,
 		LastName:       *createUserReq.LastName,
 		Login:          *createUserReq.Login,

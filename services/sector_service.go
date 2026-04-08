@@ -109,7 +109,8 @@ func (sectorService *SectorService) CreateSector(tenantUuid string, orgUuid stri
 		Int64: parentSector.Id,
 		Valid: true,
 	}
-	nuuid := uuid.New().String()
+	nuuid, _ := uuid.NewV7()
+	strUUID := nuuid.String()
 
 	sector := model.Sector{
 		TenantId:       tenant.Id,
@@ -117,7 +118,7 @@ func (sectorService *SectorService) CreateSector(tenantUuid string, orgUuid stri
 		Code:           *sectorReq.Code,
 		Label:          *sectorReq.Label,
 		ParentId:       parentId,
-		Uuid:           nuuid,
+		Uuid:           strUUID,
 		Depth:          parentSector.Depth + 1,
 	}
 
