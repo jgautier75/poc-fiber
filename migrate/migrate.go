@@ -11,10 +11,10 @@ import (
 
 func PerformMigration(log zap.Logger, pgAdminUrl string, migrationFiles string) error {
 	db, errOpen := sql.Open("postgres", pgAdminUrl)
-	defer db.Close()
 	if errOpen != nil {
 		return errOpen
 	}
+	defer db.Close()
 	driver, errPosgres := postgres.WithInstance(db, &postgres.Config{})
 	if errPosgres != nil {
 		return errPosgres

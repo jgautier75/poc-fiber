@@ -3,6 +3,12 @@ package endpoints
 import (
 	"context"
 	"errors"
+	"net/url"
+	"poc-fiber/commons"
+	"poc-fiber/exceptions"
+	"poc-fiber/model"
+	"poc-fiber/oauth"
+
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-playground/validator"
 	"github.com/go-resty/resty/v2"
@@ -11,11 +17,6 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
-	"net/url"
-	"poc-fiber/commons"
-	"poc-fiber/exceptions"
-	"poc-fiber/model"
-	"poc-fiber/oauth"
 )
 
 const HEADER_STATE = "state"
@@ -161,7 +162,7 @@ func DeleteSession(clientId string, clientSecret string, store *session.Store, o
 
 func logDeleteToken(response *resty.Response, errDelete error, logger zap.Logger) {
 	if errDelete != nil {
-		logger.Error("error deleting access token", zap.Error(errDelete))
+		logger.Error("error deleting token", zap.Error(errDelete))
 	}
 	logger.Info("response status", zap.String("response status", response.Status()))
 }

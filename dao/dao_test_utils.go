@@ -59,5 +59,5 @@ func CreatePgContainerTest(ctx context.Context, logger zap.Logger) (*testcontain
 		return nil, nilHost, nilPort, errHost
 	}
 	port, errPort := dbContainer.MappedPort(ctx, "5432")
-	return &dbContainer, host, port, errPort
+	return &dbContainer, host, nat.Port(port.Port()), errPort
 }
