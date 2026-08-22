@@ -136,6 +136,7 @@ func main() {
 	fConfig := setup.BuildFiberConfig(viper.GetString("app.name"))
 	logger.Info("Application -> Setup")
 	app := fiber.New(fConfig)
+	app.Use(session.New())
 
 	// Fetch OIDC .well-known url
 	logger.Info("OIDC -> Fetch .well-known url [" + viper.GetString("oauth2.issuer") + "]")
@@ -174,8 +175,8 @@ func main() {
 	go func() {
 		logger.Info("Application -> Listen TLS")
 		if errTls := app.Listen(":"+viper.GetString("app.server.port"), fiber.ListenConfig{
-			CertFile:    "cert.pem",
-			CertKeyFile: "cert.key",
+			CertFile:    "./cert.pem",
+			CertKeyFile: "./key.pem",
 		}); errTls != nil {
 			panic(errTls)
 		}
