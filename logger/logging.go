@@ -2,6 +2,7 @@ package logger
 
 import (
 	"context"
+	"go.opentelemetry.io/otel/attribute"
 	"os"
 	"time"
 
@@ -55,7 +56,7 @@ func ConfigureConsoleLogger() *zap.Logger {
 func LogRecord(c context.Context, loggerName string, message string) {
 	var logRecord log.Record
 	logRecord.SetTimestamp(time.Now())
-	logRecord.SetBody(log.StringValue(message))
+	logRecord.SetBody(attribute.StringValue(message))
 	logRecord.SetSeverity(log.SeverityInfo)
 	global.GetLoggerProvider().Logger(loggerName).Emit(c, logRecord)
 }
