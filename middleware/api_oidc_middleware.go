@@ -13,26 +13,21 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-resty/resty/v2"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 )
 
-func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRedirectUri string, store *session.Store, clientId string, clientSecret string) fiber.Handler {
-	return func(c *fiber.Ctx) (err error) {
+func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRedirectUri string, clientId string, clientSecret string) fiber.Handler {
+	return func(c fiber.Ctx) (err error) {
 		p := c.Path()
 		if strings.HasPrefix(p, apiBaseUri) {
-			forceRefreshToken, accessDenied, errCheck := checkHeaderAndSession(c, store, oauthmgr)
-			if accessDenied || errCheck != nil {
-				if errCheck != nil {
-					return c.Status(fiber.StatusUnauthorized).JSON(errCheck)
-				} else {
-					return c.Status(fiber.StatusUnauthorized).JSON(errors.New("access denied"))
-				}
+			forceRefreshToken, accessDenied := checkHeaderAndSession(c, oauthmgr)
+			if accessDenied {
+				return c.Status(fiber.StatusUnauthorized).JSON(errors.New("access denied"))
 			} else if forceRefreshToken {
-				httpSession, _ := store.Get(c)
-				defer httpSession.Save()
+				httpSession := session.FromContext(c)
 				tkn := httpSession.Get(commons.SESSION_ATTR_TOKEN)
 				if tkn != nil {
 					tokenData, errFetch := fetchNewToken(oauthmgr.Provider, tkn.(oauth2.Token).RefreshToken, renewRedirectUri, clientId, clientSecret)
@@ -54,11 +49,12 @@ func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRed
 	}
 }
 
-func checkHeaderAndSession(c *fiber.Ctx, store *session.Store, oauthmgr oauth.OAuthManager) (bool, bool, error) {
+func checkHeaderAndSession(c fiber.Ctx, oauthmgr oauth.OAuthManager) (bool, bool) {
 	hasAuth, _, errAuth := hasAuthorizationBearer(c, oauthmgr.Verifier)
 	sid := c.Cookies(commons.HEADER_SESSION_ID)
-	httpSession, errSession := store.Get(c)
 
+	httpSession := session.FromContext(c)
+	httpSession.Get(c)
 	var forceRefreshToken = false
 	var accessDenied = false
 	if hasAuth {
@@ -71,12 +67,8 @@ func checkHeaderAndSession(c *fiber.Ctx, store *session.Store, oauthmgr oauth.OA
 		}
 	} else if sid != "" {
 
-		if errSession != nil {
-			accessDenied = true
-		}
-
 		// Check if token in session exists and is valid
-		_, errSession := checkRefreshTokenInSession(httpSession, oauthmgr.Verifier)
+		_, errSession := checkRefreshTokenInSession(c, oauthmgr.Verifier)
 		if errSession != nil {
 			if isExpiredToken(errSession) {
 				forceRefreshToken = true
@@ -85,10 +77,10 @@ func checkHeaderAndSession(c *fiber.Ctx, store *session.Store, oauthmgr oauth.OA
 			}
 		}
 	}
-	return forceRefreshToken, accessDenied, errSession
+	return forceRefreshToken, accessDenied
 }
 
-func hasAuthorizationBearer(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) (bool, time.Time, error) {
+func hasAuthorizationBearer(c fiber.Ctx, verifier *oidc.IDTokenVerifier) (bool, time.Time, error) {
 	auth := c.GetReqHeaders()[commons.HEADER_AUTHORIZATION]
 	var nilTime time.Time
 	if auth != nil {
@@ -98,9 +90,9 @@ func hasAuthorizationBearer(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) (bool,
 	return false, nilTime, nil
 }
 
-func checkRefreshTokenInSession(httpSession *session.Session, verifier *oidc.IDTokenVerifier) (oauth2.Token, error) {
+func checkRefreshTokenInSession(c fiber.Ctx, verifier *oidc.IDTokenVerifier) (oauth2.Token, error) {
 	var nilToken oauth2.Token
-	tkn := httpSession.Get(commons.SESSION_ATTR_TOKEN)
+	tkn := session.FromContext(c).Get(commons.SESSION_ATTR_TOKEN)
 	var nilTkn interface{}
 	if tkn == nilTkn {
 		return nilToken, errors.New("no token in session")
@@ -114,7 +106,7 @@ func checkRefreshTokenInSession(httpSession *session.Session, verifier *oidc.IDT
 	}
 }
 
-func checkAuthorizationHeader(c *fiber.Ctx, verifier *oidc.IDTokenVerifier) (time.Time, error) {
+func checkAuthorizationHeader(c fiber.Ctx, verifier *oidc.IDTokenVerifier) (time.Time, error) {
 	var nilTime time.Time
 	auth := c.GetReqHeaders()[commons.HEADER_AUTHORIZATION]
 	if auth != nil {
