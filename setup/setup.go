@@ -3,10 +3,10 @@ package setup
 import (
 	"context"
 	"errors"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/storage/redis"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/storage/redis/v3"
 	"github.com/gofiber/template/html/v2"
-	"poc-fiber/exceptions"
+	"net/http"
 	"runtime"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -26,20 +26,25 @@ func SetupCnxPool(pgUrl string, minConns int32, maxConns int32, zapLogger zap.Lo
 }
 
 func BuildFiberConfig(appName string) fiber.Config {
-	var defErrorHandler = func(c *fiber.Ctx, err error) error {
-		var e *fiber.Error
+
+	var defaultErrorHandler = func(c fiber.Ctx, err error) error {
+		// Status code defaults to 500
 		code := fiber.StatusInternalServerError
-		if errors.As(err, &e) {
+		var e *fiber.Error
+		matched := errors.As(err, &e)
+		if matched && e != nil {
 			code = e.Code
-			if code >= fiber.StatusBadRequest && code < fiber.StatusInternalServerError {
-				apiError := exceptions.ConvertToFunctionalError(err, code)
-				return c.Status(code).JSON(apiError)
-			} else {
-				apiError := exceptions.ConvertToInternalError(err)
-				return c.Status(code).JSON(apiError)
-			}
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(exceptions.ConvertToInternalError(err))
+		message := http.StatusText(code)
+		if err != nil && !(matched && e == nil) {
+			message = err.Error()
+		}
+
+		// Set Content-Type: text/plain; charset=utf-8
+		c.Set(fiber.HeaderContentType, fiber.MIMETextPlainCharsetUTF8)
+
+		// Return status code with error message
+		return c.Status(code).SendString(message)
 	}
 
 	// load only the contents of the subfolder www
@@ -47,13 +52,12 @@ func BuildFiberConfig(appName string) fiber.Config {
 	engine.Delims("{{", "}}") // define delimiters to use in the templates
 
 	fConfig := fiber.Config{
-		AppName:           appName,
-		CaseSensitive:     true,
-		StrictRouting:     true,
-		EnablePrintRoutes: true,
-		UnescapePath:      true,
-		ErrorHandler:      defErrorHandler,
-		Views:             engine,
+		AppName:       appName,
+		CaseSensitive: true,
+		StrictRouting: true,
+		UnescapePath:  true,
+		ErrorHandler:  defaultErrorHandler,
+		Views:         engine,
 	}
 	return fConfig
 }

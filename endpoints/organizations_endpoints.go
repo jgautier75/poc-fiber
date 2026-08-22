@@ -7,14 +7,14 @@ import (
 	"poc-fiber/services"
 	"poc-fiber/validation"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"go.opentelemetry.io/otel"
 )
 
 const OTEL_TRACER_NAME = "otel-collector"
 
-func MakeOrgFindAll(orgSvc services.OrganizationService) func(ctx *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func MakeOrgFindAll(orgSvc services.OrganizationService) func(ctx fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-ORG-LIST")
 		defer span.End()
 		tenantUuid := ctx.Params("tenantUuid")
@@ -37,15 +37,15 @@ func MakeOrgFindAll(orgSvc services.OrganizationService) func(ctx *fiber.Ctx) er
 	}
 }
 
-func MakeOrgCreate(orgSvc services.OrganizationService) func(ctx *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func MakeOrgCreate(orgSvc services.OrganizationService) func(ctx fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 
 		c, span := otel.Tracer(OTEL_TRACER_NAME).Start(ctx.Context(), "API-ORG-CREATE")
 		defer span.End()
 
 		tenantUuid := ctx.Params("tenantUuid")
 		var orgCreateReq = dtos.CreateOrgRequest{}
-		if err := ctx.BodyParser(&orgCreateReq); err != nil {
+		if err := ctx.Bind().Body(&orgCreateReq); err != nil {
 			_ = ctx.SendStatus(fiber.StatusInternalServerError)
 			apiErr := exceptions.ConvertToInternalError(err)
 			return ctx.JSON(apiErr)
