@@ -4,7 +4,7 @@ import (
 	"poc-fiber/commons"
 	"poc-fiber/validation"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pkg/errors"
 )
 

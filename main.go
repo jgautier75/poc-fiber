@@ -19,8 +19,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/session"
 	openbao "github.com/openbao/openbao/api/v2"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -131,12 +131,12 @@ func main() {
 	defCfg := session.ConfigDefault
 	redisStorage := setup.ConfigureRedisStorage(viper.GetString("redis.host"), viper.GetInt("redis.port"))
 	defCfg.Storage = redisStorage
-	store := session.New(defCfg)
 
 	// Fiber endpoints
 	fConfig := setup.BuildFiberConfig(viper.GetString("app.name"))
 	logger.Info("Application -> Setup")
 	app := fiber.New(fConfig)
+	app.Use(session.New())
 
 	// Fetch OIDC .well-known url
 	logger.Info("OIDC -> Fetch .well-known url [" + viper.GetString("oauth2.issuer") + "]")
@@ -147,16 +147,16 @@ func main() {
 	}
 
 	logger.Info("Middleware -> Setup")
-	app.Use(middleware.InitOidcMiddleware(authMgr, fullApiUri, versionsApi, store, clientId, clientSecret))
+	app.Use(middleware.InitOidcMiddleware(authMgr, fullApiUri, versionsApi, clientId, clientSecret))
 	app.Use(middleware.HttpMiddleWareStats(otmMetrics))
 
 	logger.Info("Endpoints -> Setup")
-	app.Get("/"+appContext+"/home", endpoints.MakeIndex(authMgr.OAuthConfig, store))
+	app.Get("/"+appContext+"/home", endpoints.MakeIndex(authMgr.OAuthConfig))
 	app.Get(versionsApi, endpoints.MakeVersions(viper.GetString("app.version")))
-	app.Delete(fullApiUri+"/sessions", endpoints.DeleteSession(clientId, clientSecret, store, authMgr.OAuthEndpoints, logger))
+	app.Delete(fullApiUri+"/sessions", endpoints.DeleteSession(clientId, clientSecret, authMgr.OAuthEndpoints, logger))
 
 	// OIDC
-	app.Get(authMgr.OAuthCallBackUri, endpoints.MakeOAuthCallback(authMgr.OAuthConfig, store, authMgr.Verifier))
+	app.Get(authMgr.OAuthCallBackUri, endpoints.MakeOAuthCallback(authMgr.OAuthConfig, authMgr.Verifier))
 
 	// Organizations
 	app.Get(apiOrgsPrefix, endpoints.MakeOrgFindAll(orgService))
@@ -174,7 +174,10 @@ func main() {
 
 	go func() {
 		logger.Info("Application -> Listen TLS")
-		if errTls := app.ListenTLS(":"+viper.GetString("app.server.port"), "cert.pem", "key.pem"); errTls != nil {
+		if errTls := app.Listen(":"+viper.GetString("app.server.port"), fiber.ListenConfig{
+			CertFile:    "./cert.pem",
+			CertKeyFile: "./key.pem",
+		}); errTls != nil {
 			panic(errTls)
 		}
 	}()

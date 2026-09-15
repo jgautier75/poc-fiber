@@ -8,12 +8,12 @@ import (
 	"poc-fiber/services"
 	"poc-fiber/validation"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"go.opentelemetry.io/otel"
 )
 
-func MakeSectorCreate(sectorsSvc services.SectorService) func(ctx *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func MakeSectorCreate(sectorsSvc services.SectorService) func(ctx fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
 
@@ -22,7 +22,7 @@ func MakeSectorCreate(sectorsSvc services.SectorService) func(ctx *fiber.Ctx) er
 
 		// Deserialize request
 		sectorReq := dtos.SectorCreateRequest{}
-		if err := ctx.BodyParser(&sectorReq); err != nil {
+		if err := ctx.Bind().Body(&sectorReq); err != nil {
 			_ = ctx.SendStatus(fiber.StatusInternalServerError)
 			apiErr := exceptions.ConvertToInternalError(err)
 			return ctx.JSON(apiErr)
@@ -57,8 +57,8 @@ func MakeSectorCreate(sectorsSvc services.SectorService) func(ctx *fiber.Ctx) er
 	}
 }
 
-func MakeSectorsFindAll(sectorsSvc services.SectorService) func(ctx *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func MakeSectorsFindAll(sectorsSvc services.SectorService) func(ctx fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
 

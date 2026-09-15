@@ -10,12 +10,12 @@ import (
 	"poc-fiber/validation"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"go.opentelemetry.io/otel"
 )
 
-func MakeUserCreate(userService services.UserService) func(ctx *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func MakeUserCreate(userService services.UserService) func(ctx fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
 
@@ -24,7 +24,7 @@ func MakeUserCreate(userService services.UserService) func(ctx *fiber.Ctx) error
 
 		// Deserialize request
 		userReq := dtos.CreateUserRequest{}
-		if err := ctx.BodyParser(&userReq); err != nil {
+		if err := ctx.Bind().Body(&userReq); err != nil {
 			_ = ctx.SendStatus(fiber.StatusInternalServerError)
 			apiErr := exceptions.ConvertToInternalError(err)
 			return ctx.JSON(apiErr)
@@ -58,8 +58,8 @@ func MakeUserCreate(userService services.UserService) func(ctx *fiber.Ctx) error
 	}
 }
 
-func MakeUserDelete(userService services.UserService) func(ctx *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func MakeUserDelete(userService services.UserService) func(ctx fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
 		userUuid := ctx.Params("userUuid")
@@ -84,8 +84,8 @@ func MakeUserDelete(userService services.UserService) func(ctx *fiber.Ctx) error
 	}
 }
 
-func MakeUsersList(userService services.UserService) func(ctx *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func MakeUsersList(userService services.UserService) func(ctx fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
 
@@ -109,8 +109,8 @@ func MakeUsersList(userService services.UserService) func(ctx *fiber.Ctx) error 
 	}
 }
 
-func MakeUsersDelete(userService services.UserService) func(ctx *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func MakeUsersDelete(userService services.UserService) func(ctx fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
 		userUuid := ctx.Params("userUuid")
@@ -145,8 +145,8 @@ func MakeUsersDelete(userService services.UserService) func(ctx *fiber.Ctx) erro
 	}
 }
 
-func MakeUsersFilter(userService services.UserService) func(ctx *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func MakeUsersFilter(userService services.UserService) func(ctx fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		tenantUuid := ctx.Params("tenantUuid")
 		orgUuid := ctx.Params("organizationUuid")
 
