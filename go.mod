@@ -26,7 +26,7 @@ require (
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/gofiber/schema v1.8.6 // indirect
-	github.com/gofiber/utils/v2 v2.5.1 // indirect
+	github.com/gofiber/utils/v2 v2.5.2 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-secure-stdlib/parseutil v0.2.0 // indirect
@@ -48,7 +48,7 @@ require (
 
 require (
 	dario.cat/mergo v1.0.2 // indirect
-	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
+	github.com/Azure/go-ansiterm v0.0.0-20260914234754-15785f84ba1c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
