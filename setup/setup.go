@@ -3,11 +3,12 @@ package setup
 import (
 	"context"
 	"errors"
+	"net/http"
+	"runtime"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/storage/redis/v3"
 	"github.com/gofiber/template/html/v2"
-	"net/http"
-	"runtime"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"

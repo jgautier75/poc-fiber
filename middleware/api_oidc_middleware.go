@@ -52,8 +52,6 @@ func InitOidcMiddleware(oauthmgr oauth.OAuthManager, apiBaseUri string, renewRed
 func checkHeaderAndSession(c fiber.Ctx, oauthmgr oauth.OAuthManager) (bool, bool) {
 	hasAuth, _, errAuth := hasAuthorizationBearer(c, oauthmgr.Verifier)
 	sid := c.Cookies(commons.HEADER_SESSION_ID)
-	httpSession := session.FromContext(c)
-	httpSession.Get(c)
 	var forceRefreshToken = false
 	var accessDenied = false
 	if hasAuth {

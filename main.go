@@ -128,15 +128,16 @@ func main() {
 	var apiUsersPrefix = apiOrgsPrefix + "/:organizationUuid/users"
 
 	// Redis setup (session storage)
-	defCfg := session.ConfigDefault
 	redisStorage := setup.ConfigureRedisStorage(viper.GetString("redis.host"), viper.GetInt("redis.port"))
-	defCfg.Storage = redisStorage
+	sessionConfig := session.Config{
+		Storage: redisStorage,
+	}
 
 	// Fiber endpoints
 	fConfig := setup.BuildFiberConfig(viper.GetString("app.name"))
 	logger.Info("Application -> Setup")
 	app := fiber.New(fConfig)
-	app.Use(session.New())
+	app.Use(session.New(sessionConfig))
 
 	// Fetch OIDC .well-known url
 	logger.Info("OIDC -> Fetch .well-known url [" + viper.GetString("oauth2.issuer") + "]")
