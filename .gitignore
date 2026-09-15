@@ -479,6 +479,8 @@ docker/container/prometheus/wbl/00000052
 /docker/container/prometheus/wal/00000009
 /docker/container/prometheus/wal/00000010
 /docker/container/prometheus/wbl/00000010
+.ansible/.lock
+.vscode/settings.json
 docker/container/grafana/plugins/grafana-exploretraces-app/4.js
 docker/container/grafana/plugins/grafana-exploretraces-app/4.js.map
 docker/container/grafana/plugins/grafana-exploretraces-app/7.js
@@ -934,9 +936,6 @@ docker/container/grafana/plugins/grafana-pyroscope-app/locales/zh-Hans/grafana-p
 docker/container/grafana/plugins/grafana-pyroscope-app/locales/zh-Hant/grafana-pyroscope-app.json
 docker/container/prometheus/chunks_head/000001
 docker/container/prometheus/wal/00000000
-.gitignore
 docker/container/prometheus/wbl/00000000
-.vscode/settings.json
-.gitignore
-.gitignore
-.ansible/.lock
+docs/bruno/POC-FIBER/environments/LOCALHOST.bru
+docs/bruno/POC-FIBER/environments/LOCALHOST.bru
