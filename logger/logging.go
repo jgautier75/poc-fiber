@@ -2,12 +2,13 @@ package logger
 
 import (
 	"context"
-	"go.opentelemetry.io/otel/attribute"
 	"os"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+
 	"go.opentelemetry.io/otel/log"
-	"go.opentelemetry.io/otel/log/global"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -58,5 +59,5 @@ func LogRecord(c context.Context, loggerName string, message string) {
 	logRecord.SetTimestamp(time.Now())
 	logRecord.SetBody(attribute.StringValue(message))
 	logRecord.SetSeverity(log.SeverityInfo)
-	global.GetLoggerProvider().Logger(loggerName).Emit(c, logRecord)
+	otel.GetLoggerProvider().Logger(loggerName).Emit(c, logRecord)
 }
