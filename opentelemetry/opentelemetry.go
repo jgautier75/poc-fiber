@@ -11,7 +11,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/log/global"
 	otm "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
@@ -71,7 +70,7 @@ func Setup(ctx context.Context) (shutdownFn []func(context.Context) error, otelM
 		handleErr(err)
 		return shutdownFuncs, &otmMetrics, err
 	}
-	global.SetLoggerProvider(loggerProvider)
+	otel.SetLoggerProvider(loggerProvider)
 	shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
 
 	// Tracer provider
