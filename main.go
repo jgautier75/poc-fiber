@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -40,10 +41,9 @@ func main() {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if errors.As(err, &configFileNotFoundError) {
 			panic(fmt.Errorf("config file not found : [%w]", err))
-		} else {
-			panic(fmt.Errorf("error reading config : [%w]", err))
 		}
 	}
 
@@ -56,7 +56,7 @@ func main() {
 		panic(errMerge)
 	}
 
-	logger := logger.ConfigureLogger(viper.GetString("app.logFile"), true, true)
+	log := logger.ConfigureLogger(viper.GetString("app.logFile"), true, true)
 
 	// OpenBao
 	config := openbao.DefaultConfig()
@@ -74,17 +74,17 @@ func main() {
 	vaultData := secret.Data
 
 	// Generate certificates
-	setup.GenerateSelfSignedCerts(logger)
+	setup.GenerateSelfSignedCerts(log)
 
 	// Perform SQL Migration
 	pgUrl := vaultData["pgUrl"].(string)
-	errMig := migrate.PerformMigration(logger, pgUrl, "migrate/files")
+	errMig := migrate.PerformMigration(log, pgUrl, "migrate/files")
 	if errMig != nil && errMig.Error() != "no change" {
 		panic(errMig)
 	}
 
 	//Setup rdbms connection pool
-	dbPool, poolErr := setup.SetupCnxPool(pgUrl, viper.GetInt32("app.pgPoolMin"), viper.GetInt32("app.pgPoolMax"), logger)
+	dbPool, poolErr := setup.SetupCnxPool(pgUrl, viper.GetInt32("app.pgPoolMin"), viper.GetInt32("app.pgPoolMax"), log)
 	if poolErr != nil {
 		panic(poolErr)
 	}
@@ -95,7 +95,7 @@ func main() {
 	appContext := viper.GetString("app.server.context")
 
 	// Opentelemetry
-	logger.Info("OpenTelemetry > Setup")
+	log.Info("OpenTelemetry > Setup")
 	otelShutdownFuncs, otmMetrics, errOtel := opentelemetry.Setup(context.Background())
 	if errOtel != nil {
 		panic(fmt.Errorf("error setting up opentelemetry [%w]", errOtel))
@@ -104,7 +104,7 @@ func main() {
 	defer func() {
 		for _, shutdownFn := range otelShutdownFuncs {
 			errShutdown := shutdownFn(context.Background())
-			logger.Error("error shutting down opentelemetry", zap.Error(errShutdown))
+			log.Error("error shutting down opentelemetry", zap.Error(errShutdown))
 		}
 	}()
 
@@ -113,8 +113,8 @@ func main() {
 	var orgDao = dao.NewOrganizationDao(dbPool)
 	var sectorDao = dao.NewSectorDao(dbPool)
 	var userDao = dao.NewUserDao(dbPool)
-	var tenantFunctions = functions.NewTenantFunctions(tenantDao, logger)
-	var orgFunctions = functions.NewOrganizationsFunctions(orgDao, logger)
+	var tenantFunctions = functions.NewTenantFunctions(tenantDao, log)
+	var orgFunctions = functions.NewOrganizationsFunctions(orgDao, log)
 
 	var orgService = services.NewOrganizationService(tenantDao, orgDao, sectorDao)
 	var sectorService = services.NewSectorService(tenantFunctions, orgFunctions, sectorDao)
@@ -135,26 +135,26 @@ func main() {
 
 	// Fiber endpoints
 	fConfig := setup.BuildFiberConfig(viper.GetString("app.name"))
-	logger.Info("Application -> Setup")
+	log.Info("Application -> Setup")
 	app := fiber.New(fConfig)
 	app.Use(session.New(sessionConfig))
 
 	// Fetch OIDC .well-known url
-	logger.Info("OIDC -> Fetch .well-known url [" + viper.GetString("oauth2.issuer") + "]")
+	log.Info("OIDC -> Fetch .well-known url [" + viper.GetString("oauth2.issuer") + "]")
 	fOAuth := oauth.NewOAuthManager()
-	authMgr, errFetch := fOAuth.InitOAuthManager(logger, clientId, clientSecret)
+	authMgr, errFetch := fOAuth.InitOAuthManager(log, clientId, clientSecret)
 	if errFetch != nil {
 		panic(fmt.Errorf("error fetching .well-known issuer: [%w]", errFetch))
 	}
 
-	logger.Info("Middleware -> Setup")
+	log.Info("Middleware -> Setup")
 	app.Use(middleware.InitOidcMiddleware(authMgr, fullApiUri, versionsApi, clientId, clientSecret))
 	app.Use(middleware.HttpMiddleWareStats(otmMetrics))
 
-	logger.Info("Endpoints -> Setup")
+	log.Info("Endpoints -> Setup")
 	app.Get("/"+appContext+"/home", endpoints.MakeIndex(authMgr.OAuthConfig))
 	app.Get(versionsApi, endpoints.MakeVersions(viper.GetString("app.version")))
-	app.Delete(fullApiUri+"/sessions", endpoints.DeleteSession(clientId, clientSecret, authMgr.OAuthEndpoints, logger))
+	app.Delete(fullApiUri+"/sessions", endpoints.DeleteSession(clientId, clientSecret, authMgr.OAuthEndpoints, log))
 
 	// OIDC
 	app.Get(authMgr.OAuthCallBackUri, endpoints.MakeOAuthCallback(authMgr.OAuthConfig, authMgr.Verifier))
@@ -174,7 +174,7 @@ func main() {
 	app.Delete(apiUsersPrefix+"/:userUuid", endpoints.MakeUserDelete(userService))
 
 	go func() {
-		logger.Info("Application -> Listen TLS")
+		log.Info("Application -> Listen TLS")
 		if errTls := app.Listen(":"+viper.GetString("app.server.port"), fiber.ListenConfig{
 			CertFile:    "./cert.pem",
 			CertKeyFile: "./key.pem",
